@@ -99,7 +99,7 @@ function requirementList(sr) {
   })
 }
 
-function App() {
+export default function App() {
   const [tab, setTab] = useState('Home')
   const [planView, setPlanView] = useState('Projects')
   const [teamView, setTeamView] = useState('Roster')
