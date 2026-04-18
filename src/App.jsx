@@ -90,46 +90,83 @@ function ProjectEditor({ project, scenarios, setProjects }) {
 
   return (
     <div className="roster-editor">
-      <div className="section-head compact">
-        <div>
-          <span className="label">Project details</span>
-          <h3>Edit project</h3>
-        </div>
-      </div>
+      <div className="section-head compact"><div><span className="label">Project details</span><h3>Edit project</h3></div></div>
       <div className="mini-form">
-        <Field label="Project name">
-          <input className="input" value={project.name} onChange={(e) => updateProject('name', e.target.value)} />
-        </Field>
-        <Field label="Owner">
-          <input className="input" value={project.owner || ''} onChange={(e) => updateProject('owner', e.target.value)} />
-        </Field>
-        <Field label="Scenario">
-          <select className="input" value={project.scId} onChange={(e) => updateProject('scId', e.target.value)}>
-            {scenarios.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
-          </select>
-        </Field>
-        <Field label="Type">
-          <select className="input" value={project.type} onChange={(e) => updateProject('type', e.target.value)}>
-            <option value="full">full</option>
-            <option value="side">side</option>
-          </select>
-        </Field>
-        <Field label="Priority">
-          <select className="input" value={project.prio} onChange={(e) => updateProject('prio', e.target.value)}>
-            <option>Low</option><option>Medium</option><option>High</option><option>Critical</option>
-          </select>
-        </Field>
-        <Field label="Stage">
-          <select className="input" value={project.stage} onChange={(e) => updateProject('stage', e.target.value)}>
-            <option>Discovery</option><option>Define</option><option>Design</option><option>Deliver</option>
-          </select>
-        </Field>
-        <Field label="Due">
-          <input className="input" value={project.due || ''} onChange={(e) => updateProject('due', e.target.value)} placeholder="2026-05-01" />
-        </Field>
-        <Field label="FTE">
-          <input className="input" type="number" step="0.1" value={project.fte} onChange={(e) => updateProject('fte', e.target.value)} />
-        </Field>
+        <Field label="Project name"><input className="input" value={project.name} onChange={(e) => updateProject('name', e.target.value)} /></Field>
+        <Field label="Owner"><input className="input" value={project.owner || ''} onChange={(e) => updateProject('owner', e.target.value)} /></Field>
+        <Field label="Scenario"><select className="input" value={project.scId} onChange={(e) => updateProject('scId', e.target.value)}>{scenarios.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></Field>
+        <Field label="Type"><select className="input" value={project.type} onChange={(e) => updateProject('type', e.target.value)}><option value="full">full</option><option value="side">side</option></select></Field>
+        <Field label="Priority"><select className="input" value={project.prio} onChange={(e) => updateProject('prio', e.target.value)}><option>Low</option><option>Medium</option><option>High</option><option>Critical</option></select></Field>
+        <Field label="Stage"><select className="input" value={project.stage} onChange={(e) => updateProject('stage', e.target.value)}><option>Discovery</option><option>Define</option><option>Design</option><option>Deliver</option></select></Field>
+        <Field label="Due"><input className="input" value={project.due || ''} onChange={(e) => updateProject('due', e.target.value)} placeholder="2026-05-01" /></Field>
+        <Field label="FTE"><input className="input" type="number" step="0.1" value={project.fte} onChange={(e) => updateProject('fte', e.target.value)} /></Field>
+      </div>
+    </div>
+  )
+}
+
+function TeamEditor({ member, setTeam }) {
+  const updateMember = (field, value) => {
+    setTeam((prev) => prev.map((item) => {
+      if (item.id !== member.id) return item
+      const next = { ...item, [field]: field === 'cap' ? Number(value) : value }
+      if (field === 'name') {
+        next.avatar = value.split(' ').map((part) => part[0]).join('').slice(0, 2).toUpperCase() || item.avatar
+      }
+      return next
+    }))
+  }
+
+  const updatePower = (index, value) => {
+    setTeam((prev) => prev.map((item) => {
+      if (item.id !== member.id) return item
+      const powers = [...(item.powers || [])]
+      powers[index] = value
+      return { ...item, powers }
+    }))
+  }
+
+  const addPower = () => {
+    setTeam((prev) => prev.map((item) => item.id === member.id ? { ...item, powers: [...(item.powers || []), ''] } : item))
+  }
+
+  const removePower = (index) => {
+    setTeam((prev) => prev.map((item) => item.id === member.id ? { ...item, powers: (item.powers || []).filter((_, i) => i !== index) } : item))
+  }
+
+  const updateSkill = (skillId, value) => {
+    setTeam((prev) => prev.map((item) => item.id === member.id ? { ...item, sp: { ...(item.sp || {}), [skillId]: value === '' ? undefined : Number(value) } } : item))
+  }
+
+  return (
+    <div className="roster-editor">
+      <div className="section-head compact"><div><span className="label">Team details</span><h3>Edit person</h3></div></div>
+      <div className="mini-form">
+        <Field label="Name"><input className="input" value={member.name} onChange={(e) => updateMember('name', e.target.value)} /></Field>
+        <Field label="Role"><input className="input" value={member.role} onChange={(e) => updateMember('role', e.target.value)} /></Field>
+        <Field label="Discipline"><select className="input" value={member.discId} onChange={(e) => updateMember('discId', e.target.value)}>{disciplines.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></Field>
+        <Field label="Capacity %"><input className="input" type="number" value={member.cap} onChange={(e) => updateMember('cap', e.target.value)} /></Field>
+        <Field label="Type"><select className="input" value={member.emp} onChange={(e) => updateMember('emp', e.target.value)}><option>FTE</option><option>Contractor</option><option>Part-time</option><option>Consultant</option></select></Field>
+      </div>
+
+      <div className="section-head compact team-subhead"><div><span className="label">Superpowers</span></div><button className="subtab" type="button" onClick={addPower}>Add superpower</button></div>
+      <div className="stack">
+        {(member.powers || []).length === 0 && <p className="muted">No superpowers listed yet.</p>}
+        {(member.powers || []).map((power, index) => (
+          <div key={`${member.id}-power-${index}`} className="power-row">
+            <input className="input" value={power} onChange={(e) => updatePower(index, e.target.value)} placeholder="Workshop Design" />
+            <button className="subtab danger" type="button" onClick={() => removePower(index)}>Remove</button>
+          </div>
+        ))}
+      </div>
+
+      <div className="section-head compact team-subhead"><div><span className="label">Skill ratings</span></div></div>
+      <div className="skill-edit-grid">
+        {skills.map((skill) => (
+          <Field key={`${member.id}-${skill.id}`} label={skill.name}>
+            <input className="input" type="number" min="1" max="5" value={member.sp?.[skill.id] ?? ''} onChange={(e) => updateSkill(skill.id, e.target.value)} placeholder="—" />
+          </Field>
+        ))}
       </div>
     </div>
   )
@@ -165,25 +202,11 @@ function RosterEditor({ project, team, setProjects, memberLoad }) {
 
   return (
     <div className="roster-editor">
-      <div className="section-head compact">
-        <div>
-          <span className="label">Roster assignment</span>
-          <h3>Assign and edit people</h3>
-        </div>
-      </div>
-
+      <div className="section-head compact"><div><span className="label">Roster assignment</span><h3>Assign and edit people</h3></div></div>
       <form className="mini-form" onSubmit={addRosterItem}>
-        <Field label="Person">
-          <select className="input" value={newRoster.mId} onChange={(e) => setNewRoster({ ...newRoster, mId: e.target.value })}>
-            {team.map((member) => <option key={member.id} value={member.id}>{member.name}</option>)}
-          </select>
-        </Field>
-        <Field label="Role">
-          <input className="input" value={newRoster.role} onChange={(e) => setNewRoster({ ...newRoster, role: e.target.value })} placeholder="Lead Designer" />
-        </Field>
-        <Field label="Alloc %">
-          <input className="input" type="number" min="1" max="100" value={newRoster.alloc} onChange={(e) => setNewRoster({ ...newRoster, alloc: e.target.value })} />
-        </Field>
+        <Field label="Person"><select className="input" value={newRoster.mId} onChange={(e) => setNewRoster({ ...newRoster, mId: e.target.value })}>{team.map((member) => <option key={member.id} value={member.id}>{member.name}</option>)}</select></Field>
+        <Field label="Role"><input className="input" value={newRoster.role} onChange={(e) => setNewRoster({ ...newRoster, role: e.target.value })} placeholder="Lead Designer" /></Field>
+        <Field label="Alloc %"><input className="input" type="number" min="1" max="100" value={newRoster.alloc} onChange={(e) => setNewRoster({ ...newRoster, alloc: e.target.value })} /></Field>
         <div className="form-actions"><button className="subtab active" type="submit">Assign</button></div>
       </form>
 
@@ -195,17 +218,10 @@ function RosterEditor({ project, team, setProjects, memberLoad }) {
           const over = member ? totalLoad > Number(member.cap) : false
           return (
             <div key={entry.id} className="roster-row">
-              <div className="roster-main">
-                <strong>{member?.name || entry.mId}</strong>
-                <span className={over ? 'badge critical' : 'badge low'}>{totalLoad}% / {member?.cap ?? '—'}%</span>
-              </div>
+              <div className="roster-main"><strong>{member?.name || entry.mId}</strong><span className={over ? 'badge critical' : 'badge low'}>{totalLoad}% / {member?.cap ?? '—'}%</span></div>
               <div className="roster-fields">
-                <Field label="Role">
-                  <input className="input" value={entry.role} onChange={(e) => updateRosterItem(entry.id, 'role', e.target.value)} />
-                </Field>
-                <Field label="Alloc %">
-                  <input className="input" type="number" min="1" max="100" value={entry.alloc} onChange={(e) => updateRosterItem(entry.id, 'alloc', e.target.value)} />
-                </Field>
+                <Field label="Role"><input className="input" value={entry.role} onChange={(e) => updateRosterItem(entry.id, 'role', e.target.value)} /></Field>
+                <Field label="Alloc %"><input className="input" type="number" min="1" max="100" value={entry.alloc} onChange={(e) => updateRosterItem(entry.id, 'alloc', e.target.value)} /></Field>
               </div>
               <div className="actions"><button className="subtab danger" type="button" onClick={() => removeRosterItem(entry.id)}>Remove</button></div>
             </div>
@@ -226,6 +242,7 @@ export default function App() {
   const [scenarios, setScenarios] = useState(initial.scenarios)
   const [projects, setProjects] = useState(initial.projects)
   const [expandedProjects, setExpandedProjects] = useState({ [initial.projects[0]?.id || '']: true })
+  const [expandedMembers, setExpandedMembers] = useState({ [initial.team[0]?.id || '']: true })
   const [projectForm, setProjectForm] = useState({ name: '', scId: 'sc1', type: 'full', stage: 'Discovery', prio: 'Medium', due: '', owner: '', fte: 1 })
   const [scenarioForm, setScenarioForm] = useState({ name: '', desc: '', color: '#38bdf8' })
   const [teamForm, setTeamForm] = useState({ name: '', role: '', discId: 'd1', cap: 100, emp: 'FTE' })
@@ -246,6 +263,7 @@ export default function App() {
   const criticalProjects = activeProjects.filter((project) => project.prio === 'Critical').length
 
   const toggleProject = (id) => setExpandedProjects((prev) => ({ ...prev, [id]: !prev[id] }))
+  const toggleMember = (id) => setExpandedMembers((prev) => ({ ...prev, [id]: !prev[id] }))
 
   const addScenario = (e) => {
     e.preventDefault()
@@ -280,7 +298,9 @@ export default function App() {
     e.preventDefault()
     if (!teamForm.name.trim()) return
     const initials = teamForm.name.split(' ').map((part) => part[0]).join('').slice(0, 2).toUpperCase()
-    setTeam((prev) => [...prev, { id: uid('t'), ...teamForm, cap: Number(teamForm.cap), avatar: initials || 'UX', sp: {}, powers: [] }])
+    const newMember = { id: uid('t'), ...teamForm, cap: Number(teamForm.cap), avatar: initials || 'UX', sp: {}, powers: [] }
+    setTeam((prev) => [...prev, newMember])
+    setExpandedMembers((prev) => ({ ...prev, [newMember.id]: true }))
     setTeamForm({ name: '', role: '', discId: 'd1', cap: 100, emp: 'FTE' })
   }
 
@@ -294,6 +314,7 @@ export default function App() {
     setScenarios(seedScenarios)
     setProjects(seedProjects)
     setExpandedProjects({ [seedProjects[0]?.id || '']: true })
+    setExpandedMembers({ [seedTeam[0]?.id || '']: true })
   }
 
   return (
@@ -395,9 +416,7 @@ export default function App() {
                 {activeProjects.map((project) => (
                   <div key={project.id} className="timeline-row">
                     <div className="timeline-name">{project.name}</div>
-                    <div className="timeline-bar-wrap">
-                      <div className="timeline-bar" style={{ width: `${Math.max(Number(project.fte) * 22, 16)}%` }} />
-                    </div>
+                    <div className="timeline-bar-wrap"><div className="timeline-bar" style={{ width: `${Math.max(Number(project.fte) * 22, 16)}%` }} /></div>
                     <div className="timeline-meta">{project.due || 'TBD'}</div>
                   </div>
                 ))}
@@ -429,16 +448,18 @@ export default function App() {
                 {team.map((member) => {
                   const load = memberLoad(member.id)
                   const discipline = disciplines.find((item) => item.id === member.discId)
+                  const isOpen = !!expandedMembers[member.id]
                   return (
                     <article key={member.id} className="panel">
                       <div className="section-head">
                         <div className="person-head"><div className="avatar">{member.avatar}</div><div><h2>{member.name}</h2><p>{member.role}</p></div></div>
-                        <button className="subtab danger" type="button" onClick={() => deleteTeamMember(member.id)}>Delete</button>
+                        <div className="actions"><button className="subtab" type="button" onClick={() => toggleMember(member.id)}>{isOpen ? 'Close' : 'Open'}</button><button className="subtab danger" type="button" onClick={() => deleteTeamMember(member.id)}>Delete</button></div>
                       </div>
                       <div className="meta-block"><span className="pill" style={{ borderColor: discipline?.color, color: discipline?.color }}>{discipline?.name}</span><span className="pill">{member.emp}</span></div>
                       <div className="capacity-line"><span>{load}% allocated</span><span>{member.cap}% cap</span></div>
                       <div className="meter"><div className={load > member.cap ? 'meter-fill danger' : 'meter-fill'} style={{ width: `${Math.min(load, 100)}%` }} /></div>
-                      <p className="muted small">Superpowers: {member.powers?.join(', ') || 'None yet'}</p>
+                      <p className="muted small">Superpowers: {(member.powers || []).filter(Boolean).join(', ') || 'None yet'}</p>
+                      {isOpen && <TeamEditor member={member} setTeam={setTeam} />}
                     </article>
                   )
                 })}
@@ -467,7 +488,7 @@ export default function App() {
             <div className="page-grid">
               <article className="panel"><span className="label">Upskill target</span><h2>Interaction Design depth</h2><p>Maya and Sam already contribute here. A next hire or coaching plan should strengthen cross-coverage.</p></article>
               <article className="panel"><span className="label">Upskill target</span><h2>Systems + visual pairing</h2><p>Design System v2 depends on strong systems and visual collaboration. Alex is the obvious partner for Sam.</p></article>
-              <article className="panel wide"><span className="label">Editing</span><h2>Inline project editing is live</h2><p>Open a project card to edit project details, then manage roster assignments underneath.</p></article>
+              <article className="panel wide"><span className="label">Editing</span><h2>Team editing is live</h2><p>Open a team card to edit profile details, superpowers, and skill ratings.</p></article>
             </div>
           )}
           {analyzeView === 'Reports' && (
