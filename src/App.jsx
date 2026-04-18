@@ -37,19 +37,17 @@ const seedScenarios = [
 ]
 
 const seedProjects = [
-  { id: 'p1', scId: 'sc1', name: 'Mobile App Redesign', type: 'full', stage: 'Design', prio: 'High', due: '2025-09-15', owner: 'Maya Chen', fte: 2, sr: { s5: 3, s7: 3, s6: 3 }, roster: [{ mId: 't1', alloc: 60, role: 'Lead Designer' }, { mId: 't4', alloc: 50, role: 'Visual Designer' }] },
-  { id: 'p2', scId: 'sc1', name: 'Enterprise Dashboard', type: 'full', stage: 'Deliver', prio: 'Critical', due: '2025-08-31', owner: 'Sam Rivera', fte: 3, sr: { s3: 4, s4: 4, s5: 3 }, roster: [{ mId: 't3', alloc: 80, role: 'UX Architect' }, { mId: 't1', alloc: 30, role: 'IxD Support' }] },
-  { id: 'p3', scId: 'sc1', name: 'User Research Sprint', type: 'full', stage: 'Discovery', prio: 'Medium', due: '2025-08-15', owner: 'Jordan Webb', fte: 1, sr: { s1: 3, s2: 3 }, roster: [{ mId: 't2', alloc: 70, role: 'Lead Researcher' }] },
-  { id: 'p4', scId: 'sc2', name: 'Design System v2', type: 'full', stage: 'Define', prio: 'High', due: '2025-10-31', owner: 'Sam Rivera', fte: 2, sr: { s4: 4, s7: 3 }, roster: [{ mId: 't3', alloc: 60, role: 'Systems Lead' }, { mId: 't4', alloc: 40, role: 'Visual Systems' }] },
-  { id: 'p5', scId: 'sc1', name: 'Design Guild', type: 'side', stage: 'Discovery', prio: 'Low', due: 'Ongoing', owner: 'Maya Chen', fte: 0.2, sr: {}, roster: [{ mId: 't1', alloc: 10, role: 'Facilitator' }, { mId: 't2', alloc: 10, role: 'Contributor' }, { mId: 't3', alloc: 10, role: 'Contributor' }] },
+  { id: 'p1', scId: 'sc1', name: 'Mobile App Redesign', type: 'full', stage: 'Design', prio: 'High', due: '2025-09-15', owner: 'Maya Chen', fte: 2, sr: { s5: 3, s7: 3, s6: 3 }, roster: [{ id: 'r1', mId: 't1', alloc: 60, role: 'Lead Designer' }, { id: 'r2', mId: 't4', alloc: 50, role: 'Visual Designer' }] },
+  { id: 'p2', scId: 'sc1', name: 'Enterprise Dashboard', type: 'full', stage: 'Deliver', prio: 'Critical', due: '2025-08-31', owner: 'Sam Rivera', fte: 3, sr: { s3: 4, s4: 4, s5: 3 }, roster: [{ id: 'r3', mId: 't3', alloc: 80, role: 'UX Architect' }, { id: 'r4', mId: 't1', alloc: 30, role: 'IxD Support' }] },
+  { id: 'p3', scId: 'sc1', name: 'User Research Sprint', type: 'full', stage: 'Discovery', prio: 'Medium', due: '2025-08-15', owner: 'Jordan Webb', fte: 1, sr: { s1: 3, s2: 3 }, roster: [{ id: 'r5', mId: 't2', alloc: 70, role: 'Lead Researcher' }] },
+  { id: 'p4', scId: 'sc2', name: 'Design System v2', type: 'full', stage: 'Define', prio: 'High', due: '2025-10-31', owner: 'Sam Rivera', fte: 2, sr: { s4: 4, s7: 3 }, roster: [{ id: 'r6', mId: 't3', alloc: 60, role: 'Systems Lead' }, { id: 'r7', mId: 't4', alloc: 40, role: 'Visual Systems' }] },
+  { id: 'p5', scId: 'sc1', name: 'Design Guild', type: 'side', stage: 'Discovery', prio: 'Low', due: 'Ongoing', owner: 'Maya Chen', fte: 0.2, sr: {}, roster: [{ id: 'r8', mId: 't1', alloc: 10, role: 'Facilitator' }, { id: 'r9', mId: 't2', alloc: 10, role: 'Contributor' }, { id: 'r10', mId: 't3', alloc: 10, role: 'Contributor' }] },
 ]
 
 const uid = (prefix) => `${prefix}${Math.random().toString(36).slice(2, 8)}`
 
 function getInitialState() {
-  if (typeof window === 'undefined') {
-    return { team: seedTeam, scenarios: seedScenarios, projects: seedProjects }
-  }
+  if (typeof window === 'undefined') return { team: seedTeam, scenarios: seedScenarios, projects: seedProjects }
   const raw = window.localStorage.getItem(STORAGE_KEY)
   if (!raw) return { team: seedTeam, scenarios: seedScenarios, projects: seedProjects }
   try {
@@ -78,19 +76,88 @@ function requirementList(sr) {
   })
 }
 
-function rosterLabel(project, team) {
-  return project.roster.map((entry) => {
-    const member = team.find((person) => person.id === entry.mId)
-    return `${member?.name || entry.mId} · ${entry.role} · ${entry.alloc}%`
-  })
+function Field({ label, children }) {
+  return <label className="field"><span className="label">{label}</span>{children}</label>
 }
 
-function Field({ label, children }) {
+function RosterEditor({ project, team, projects, setProjects, memberLoad }) {
+  const [newRoster, setNewRoster] = useState({ mId: team[0]?.id || '', alloc: 25, role: '' })
+
+  useEffect(() => {
+    setNewRoster((prev) => ({ ...prev, mId: team[0]?.id || '' }))
+  }, [team])
+
+  const updateRosterItem = (rosterId, field, value) => {
+    setProjects((prev) => prev.map((item) => item.id === project.id ? {
+      ...item,
+      roster: item.roster.map((entry) => entry.id === rosterId ? { ...entry, [field]: field === 'alloc' ? Number(value) : value } : entry),
+    } : item))
+  }
+
+  const removeRosterItem = (rosterId) => {
+    setProjects((prev) => prev.map((item) => item.id === project.id ? { ...item, roster: item.roster.filter((entry) => entry.id !== rosterId) } : item))
+  }
+
+  const addRosterItem = (e) => {
+    e.preventDefault()
+    if (!newRoster.mId) return
+    setProjects((prev) => prev.map((item) => item.id === project.id ? {
+      ...item,
+      roster: [...item.roster, { id: uid('r'), mId: newRoster.mId, alloc: Number(newRoster.alloc), role: newRoster.role || 'Contributor' }],
+    } : item))
+    setNewRoster({ mId: team[0]?.id || '', alloc: 25, role: '' })
+  }
+
   return (
-    <label className="field">
-      <span className="label">{label}</span>
-      {children}
-    </label>
+    <div className="roster-editor">
+      <div className="section-head compact">
+        <div>
+          <span className="label">Roster assignment</span>
+          <h3>Assign and edit people</h3>
+        </div>
+      </div>
+
+      <form className="mini-form" onSubmit={addRosterItem}>
+        <Field label="Person">
+          <select className="input" value={newRoster.mId} onChange={(e) => setNewRoster({ ...newRoster, mId: e.target.value })}>
+            {team.map((member) => <option key={member.id} value={member.id}>{member.name}</option>)}
+          </select>
+        </Field>
+        <Field label="Role">
+          <input className="input" value={newRoster.role} onChange={(e) => setNewRoster({ ...newRoster, role: e.target.value })} placeholder="Lead Designer" />
+        </Field>
+        <Field label="Alloc %">
+          <input className="input" type="number" min="1" max="100" value={newRoster.alloc} onChange={(e) => setNewRoster({ ...newRoster, alloc: e.target.value })} />
+        </Field>
+        <div className="form-actions"><button className="subtab active" type="submit">Assign</button></div>
+      </form>
+
+      <div className="stack">
+        {project.roster.length === 0 && <p className="muted">No one assigned yet.</p>}
+        {project.roster.map((entry) => {
+          const member = team.find((person) => person.id === entry.mId)
+          const totalLoad = member ? memberLoad(member.id) : 0
+          const over = member ? totalLoad > Number(member.cap) : false
+          return (
+            <div key={entry.id} className="roster-row">
+              <div className="roster-main">
+                <strong>{member?.name || entry.mId}</strong>
+                <span className={over ? 'badge critical' : 'badge low'}>{totalLoad}% / {member?.cap ?? '—'}%</span>
+              </div>
+              <div className="roster-fields">
+                <Field label="Role">
+                  <input className="input" value={entry.role} onChange={(e) => updateRosterItem(entry.id, 'role', e.target.value)} />
+                </Field>
+                <Field label="Alloc %">
+                  <input className="input" type="number" min="1" max="100" value={entry.alloc} onChange={(e) => updateRosterItem(entry.id, 'alloc', e.target.value)} />
+                </Field>
+              </div>
+              <div className="actions"><button className="subtab danger" onClick={() => removeRosterItem(entry.id)}>Remove</button></div>
+            </div>
+          )
+        })}
+      </div>
+    </div>
   )
 }
 
@@ -130,9 +197,7 @@ export default function App() {
     setScenarioForm({ name: '', desc: '', color: '#38bdf8' })
   }
 
-  const setActiveScenario = (id) => {
-    setScenarios((prev) => prev.map((item) => ({ ...item, active: item.id === id })))
-  }
+  const setActiveScenario = (id) => setScenarios((prev) => prev.map((item) => ({ ...item, active: item.id === id })))
 
   const deleteScenario = (id) => {
     const nextScenarios = scenarios.filter((item) => item.id !== id)
@@ -182,9 +247,7 @@ export default function App() {
       </header>
 
       <nav className="tabs">
-        {TABS.map((item) => (
-          <button key={item} className={tab === item ? 'tab active' : 'tab'} onClick={() => setTab(item)}>{item}</button>
-        ))}
+        {TABS.map((item) => <button key={item} className={tab === item ? 'tab active' : 'tab'} onClick={() => setTab(item)}>{item}</button>)}
       </nav>
 
       {tab === 'Home' && (
@@ -193,15 +256,6 @@ export default function App() {
           <article className="panel stat-panel"><span className="label">Active projects</span><strong>{activeProjects.length}</strong><p>{criticalProjects} critical priorities in flight</p></article>
           <article className="panel stat-panel"><span className="label">Planned FTE</span><strong>{totalFte.toFixed(1)}</strong><p>Across roadmap and side-of-desk commitments</p></article>
           <article className="panel stat-panel"><span className="label">Allocation risk</span><strong>{overAllocated.length}</strong><p>People currently over capacity</p></article>
-
-          <article className="panel wide">
-            <div className="section-head"><div><span className="label">Highlights</span><h2>What needs attention</h2></div></div>
-            <div className="stack">
-              {overAllocated.length === 0 ? <p className="muted">No one is over capacity right now.</p> : overAllocated.map((member) => (
-                <div key={member.id} className="row-card"><div><strong>{member.name}</strong><p>{member.role}</p></div><span className="badge critical">{memberLoad(member.id)}% / {member.cap}%</span></div>
-              ))}
-            </div>
-          </article>
         </section>
       )}
 
@@ -234,8 +288,9 @@ export default function App() {
                     </div>
                     <div className="two-col">
                       <div><span className="label">Required skills</span><ul className="chip-list">{requirementList(project.sr).length ? requirementList(project.sr).map((item) => <li key={item}>{item}</li>) : <li>No minimum skill gates</li>}</ul></div>
-                      <div><span className="label">Roster</span><ul className="list">{rosterLabel(project, team).length ? rosterLabel(project, team).map((item) => <li key={item}>{item}</li>) : <li>No one assigned yet</li>}</ul></div>
+                      <div><span className="label">Roster summary</span><ul className="list">{project.roster.length ? project.roster.map((entry) => { const member = team.find((person) => person.id === entry.mId); return <li key={entry.id}>{member?.name || entry.mId} · {entry.role} · {entry.alloc}%</li> }) : <li>No one assigned yet</li>}</ul></div>
                     </div>
+                    <RosterEditor project={project} team={team} projects={projects} setProjects={setProjects} memberLoad={memberLoad} />
                   </article>
                 ))}
               </div>
@@ -256,10 +311,7 @@ export default function App() {
                   <article key={scenario.id} className="panel">
                     <div className="section-head">
                       <div><span className="label">Scenario</span><h2>{scenario.name}</h2><p>{scenario.desc}</p></div>
-                      <div className="actions">
-                        <button className={scenario.active ? 'subtab active' : 'subtab'} onClick={() => setActiveScenario(scenario.id)}>{scenario.active ? 'Active' : 'Set active'}</button>
-                        {scenarios.length > 1 && <button className="subtab danger" onClick={() => deleteScenario(scenario.id)}>Delete</button>}
-                      </div>
+                      <div className="actions"><button className={scenario.active ? 'subtab active' : 'subtab'} onClick={() => setActiveScenario(scenario.id)}>{scenario.active ? 'Active' : 'Set active'}</button>{scenarios.length > 1 && <button className="subtab danger" onClick={() => deleteScenario(scenario.id)}>Delete</button>}</div>
                     </div>
                   </article>
                 ))}
@@ -271,9 +323,7 @@ export default function App() {
             <article className="panel">
               <div className="section-head"><div><span className="label">Timeline</span><h2>Quarter view</h2></div></div>
               <div className="timeline">
-                {activeProjects.map((project) => (
-                  <div key={project.id} className="timeline-row"><div className="timeline-name">{project.name}</div><div className="timeline-bar-wrap"><div className="timeline-bar" style={{ width: `${Math.max(Number(project.fte) * 22, 16)}%` }} /></div></div><div className="timeline-meta">{project.due || 'TBD'}</div></div>
-                ))}
+                {activeProjects.map((project) => <div key={project.id} className="timeline-row"><div className="timeline-name">{project.name}</div><div className="timeline-bar-wrap"><div className="timeline-bar" style={{ width: `${Math.max(Number(project.fte) * 22, 16)}%` }} /></div></div><div className="timeline-meta">{project.due || 'TBD'}</div></div>)}
               </div>
             </article>
           )}
@@ -310,7 +360,7 @@ export default function App() {
                       </div>
                       <div className="meta-block"><span className="pill" style={{ borderColor: discipline?.color, color: discipline?.color }}>{discipline?.name}</span><span className="pill">{member.emp}</span></div>
                       <div className="capacity-line"><span>{load}% allocated</span><span>{member.cap}% cap</span></div>
-                      <div className="meter"><div className={load > member.cap ? 'meter-fill danger' : 'meter-fill'} style={{ width: `${Math.min(load, 100)}%` }} /></div></div>
+                      <div className="meter"><div className={load > member.cap ? 'meter-fill danger' : 'meter-fill'} style={{ width: `${Math.min(load, 100)}%` }} /></div>
                       <p className="muted small">Superpowers: {member.powers?.join(', ') || 'None yet'}</p>
                     </article>
                   )
@@ -324,7 +374,7 @@ export default function App() {
               <div className="section-head"><div><span className="label">Skills matrix</span><h2>Capabilities on the team</h2></div></div>
               <div className="skill-matrix">
                 <div className="matrix-head matrix-row"><div>Skill</div>{team.map((member) => <div key={member.id}>{member.avatar}</div>)}</div>
-                {skills.map((skill) => <div key={skill.id} className="matrix-row"><div>{skill.name}</div>{team.map((member) => <div key={member.id}>{member.sp?.[skill.id] || '—'}</div>)}</div>) }
+                {skills.map((skill) => <div key={skill.id} className="matrix-row"><div>{skill.name}</div>{team.map((member) => <div key={member.id}>{member.sp?.[skill.id] || '—'}</div>)}</div>)}
               </div>
             </article>
           )}
@@ -340,7 +390,7 @@ export default function App() {
             <div className="page-grid">
               <article className="panel"><span className="label">Upskill target</span><h2>Interaction Design depth</h2><p>Maya and Sam already contribute here. A next hire or coaching plan should strengthen cross-coverage.</p></article>
               <article className="panel"><span className="label">Upskill target</span><h2>Systems + visual pairing</h2><p>Design System v2 depends on strong systems and visual collaboration. Alex is the obvious partner for Sam.</p></article>
-              <article className="panel wide"><span className="label">Persistence</span><h2>CRUD is back</h2><p>Projects, scenarios, and people now save in local storage on this device.</p></article>
+              <article className="panel wide"><span className="label">Persistence</span><h2>Roster editing is back</h2><p>You can now assign people, change allocation, update assignment roles, and remove them from a project.</p></article>
             </div>
           )}
           {analyzeView === 'Reports' && (
