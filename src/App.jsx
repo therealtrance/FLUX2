@@ -80,7 +80,7 @@ function Field({ label, children }) {
   return <label className="field"><span className="label">{label}</span>{children}</label>
 }
 
-function RosterEditor({ project, team, projects, setProjects, memberLoad }) {
+function RosterEditor({ project, team, setProjects, memberLoad }) {
   const [newRoster, setNewRoster] = useState({ mId: team[0]?.id || '', alloc: 25, role: '' })
 
   useEffect(() => {
@@ -152,7 +152,7 @@ function RosterEditor({ project, team, projects, setProjects, memberLoad }) {
                   <input className="input" type="number" min="1" max="100" value={entry.alloc} onChange={(e) => updateRosterItem(entry.id, 'alloc', e.target.value)} />
                 </Field>
               </div>
-              <div className="actions"><button className="subtab danger" onClick={() => removeRosterItem(entry.id)}>Remove</button></div>
+              <div className="actions"><button className="subtab danger" type="button" onClick={() => removeRosterItem(entry.id)}>Remove</button></div>
             </div>
           )
         })}
@@ -170,6 +170,7 @@ export default function App() {
   const [team, setTeam] = useState(initial.team)
   const [scenarios, setScenarios] = useState(initial.scenarios)
   const [projects, setProjects] = useState(initial.projects)
+  const [expandedProjects, setExpandedProjects] = useState({ [initial.projects[0]?.id || '']: true })
   const [projectForm, setProjectForm] = useState({ name: '', scId: 'sc1', type: 'full', stage: 'Discovery', prio: 'Medium', due: '', owner: '', fte: 1 })
   const [scenarioForm, setScenarioForm] = useState({ name: '', desc: '', color: '#38bdf8' })
   const [teamForm, setTeamForm] = useState({ name: '', role: '', discId: 'd1', cap: 100, emp: 'FTE' })
@@ -188,6 +189,8 @@ export default function App() {
   const totalFte = activeProjects.reduce((sum, project) => sum + Number(project.fte || 0), 0)
   const overAllocated = team.filter((member) => memberLoad(member.id) > Number(member.cap))
   const criticalProjects = activeProjects.filter((project) => project.prio === 'Critical').length
+
+  const toggleProject = (id) => setExpandedProjects((prev) => ({ ...prev, [id]: !prev[id] }))
 
   const addScenario = (e) => {
     e.preventDefault()
@@ -210,7 +213,9 @@ export default function App() {
   const addProject = (e) => {
     e.preventDefault()
     if (!projectForm.name.trim()) return
-    setProjects((prev) => [...prev, { id: uid('p'), ...projectForm, fte: Number(projectForm.fte), roster: [], sr: {} }])
+    const newProject = { id: uid('p'), ...projectForm, fte: Number(projectForm.fte), roster: [], sr: {} }
+    setProjects((prev) => [...prev, newProject])
+    setExpandedProjects((prev) => ({ ...prev, [newProject.id]: true }))
     setProjectForm({ name: '', scId: activeScenario?.id || scenarios[0]?.id || '', type: 'full', stage: 'Discovery', prio: 'Medium', due: '', owner: '', fte: 1 })
   }
 
@@ -233,6 +238,7 @@ export default function App() {
     setTeam(seedTeam)
     setScenarios(seedScenarios)
     setProjects(seedProjects)
+    setExpandedProjects({ [seedProjects[0]?.id || '']: true })
   }
 
   return (
@@ -280,19 +286,26 @@ export default function App() {
               </form>
 
               <div className="stack">
-                {projects.map((project) => (
-                  <article key={project.id} className="panel">
-                    <div className="section-head">
-                      <div><span className="label">{project.type === 'side' ? 'Side effort' : 'Project'}</span><h2>{project.name}</h2><p>{project.stage} · Due {project.due || 'TBD'} · Owner {project.owner || 'Unassigned'}</p></div>
-                      <div className="actions"><span className={badgeClass(project.prio)}>{project.prio}</span><button className="subtab danger" onClick={() => deleteProject(project.id)}>Delete</button></div>
-                    </div>
-                    <div className="two-col">
-                      <div><span className="label">Required skills</span><ul className="chip-list">{requirementList(project.sr).length ? requirementList(project.sr).map((item) => <li key={item}>{item}</li>) : <li>No minimum skill gates</li>}</ul></div>
-                      <div><span className="label">Roster summary</span><ul className="list">{project.roster.length ? project.roster.map((entry) => { const member = team.find((person) => person.id === entry.mId); return <li key={entry.id}>{member?.name || entry.mId} · {entry.role} · {entry.alloc}%</li> }) : <li>No one assigned yet</li>}</ul></div>
-                    </div>
-                    <RosterEditor project={project} team={team} projects={projects} setProjects={setProjects} memberLoad={memberLoad} />
-                  </article>
-                ))}
+                {projects.map((project) => {
+                  const isOpen = !!expandedProjects[project.id]
+                  return (
+                    <article key={project.id} className="panel">
+                      <div className="section-head">
+                        <div><span className="label">{project.type === 'side' ? 'Side effort' : 'Project'}</span><h2>{project.name}</h2><p>{project.stage} · Due {project.due || 'TBD'} · Owner {project.owner || 'Unassigned'}</p></div>
+                        <div className="actions"><span className={badgeClass(project.prio)}>{project.prio}</span><button className="subtab" type="button" onClick={() => toggleProject(project.id)}>{isOpen ? 'Close' : 'Open'}</button><button className="subtab danger" type="button" onClick={() => deleteProject(project.id)}>Delete</button></div>
+                      </div>
+                      {isOpen && (
+                        <>
+                          <div className="two-col">
+                            <div><span className="label">Required skills</span><ul className="chip-list">{requirementList(project.sr).length ? requirementList(project.sr).map((item) => <li key={item}>{item}</li>) : <li>No minimum skill gates</li>}</ul></div>
+                            <div><span className="label">Roster summary</span><ul className="list">{project.roster.length ? project.roster.map((entry) => { const member = team.find((person) => person.id === entry.mId); return <li key={entry.id}>{member?.name || entry.mId} · {entry.role} · {entry.alloc}%</li> }) : <li>No one assigned yet</li>}</ul></div>
+                          </div>
+                          <RosterEditor project={project} team={team} setProjects={setProjects} memberLoad={memberLoad} />
+                        </>
+                      )}
+                    </article>
+                  )
+                })}
               </div>
             </>
           )}
@@ -311,7 +324,7 @@ export default function App() {
                   <article key={scenario.id} className="panel">
                     <div className="section-head">
                       <div><span className="label">Scenario</span><h2>{scenario.name}</h2><p>{scenario.desc}</p></div>
-                      <div className="actions"><button className={scenario.active ? 'subtab active' : 'subtab'} onClick={() => setActiveScenario(scenario.id)}>{scenario.active ? 'Active' : 'Set active'}</button>{scenarios.length > 1 && <button className="subtab danger" onClick={() => deleteScenario(scenario.id)}>Delete</button>}</div>
+                      <div className="actions"><button className={scenario.active ? 'subtab active' : 'subtab'} type="button" onClick={() => setActiveScenario(scenario.id)}>{scenario.active ? 'Active' : 'Set active'}</button>{scenarios.length > 1 && <button className="subtab danger" type="button" onClick={() => deleteScenario(scenario.id)}>Delete</button>}</div>
                     </div>
                   </article>
                 ))}
@@ -356,7 +369,7 @@ export default function App() {
                     <article key={member.id} className="panel">
                       <div className="section-head">
                         <div className="person-head"><div className="avatar">{member.avatar}</div><div><h2>{member.name}</h2><p>{member.role}</p></div></div>
-                        <button className="subtab danger" onClick={() => deleteTeamMember(member.id)}>Delete</button>
+                        <button className="subtab danger" type="button" onClick={() => deleteTeamMember(member.id)}>Delete</button>
                       </div>
                       <div className="meta-block"><span className="pill" style={{ borderColor: discipline?.color, color: discipline?.color }}>{discipline?.name}</span><span className="pill">{member.emp}</span></div>
                       <div className="capacity-line"><span>{load}% allocated</span><span>{member.cap}% cap</span></div>
@@ -390,7 +403,7 @@ export default function App() {
             <div className="page-grid">
               <article className="panel"><span className="label">Upskill target</span><h2>Interaction Design depth</h2><p>Maya and Sam already contribute here. A next hire or coaching plan should strengthen cross-coverage.</p></article>
               <article className="panel"><span className="label">Upskill target</span><h2>Systems + visual pairing</h2><p>Design System v2 depends on strong systems and visual collaboration. Alex is the obvious partner for Sam.</p></article>
-              <article className="panel wide"><span className="label">Persistence</span><h2>Roster editing is back</h2><p>You can now assign people, change allocation, update assignment roles, and remove them from a project.</p></article>
+              <article className="panel wide"><span className="label">Mobile fix</span><h2>Cards now open</h2><p>Each project now has an Open button so you can reveal the roster editor on mobile.</p></article>
             </div>
           )}
           {analyzeView === 'Reports' && (
