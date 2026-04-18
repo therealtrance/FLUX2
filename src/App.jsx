@@ -94,6 +94,20 @@ function getSkillCoverage(member, sr) {
   }
 }
 
+function getCoverageGaps(team, project) {
+  return Object.entries(project.sr || {}).map(([skillId, needed]) => {
+    const best = Math.max(0, ...team.map((member) => Number(member.sp?.[skillId] || 0)))
+    const skill = skills.find((s) => s.id === skillId)
+    return {
+      skillId,
+      name: skill?.name || skillId,
+      needed: Number(needed),
+      best,
+      covered: best >= Number(needed),
+    }
+  })
+}
+
 function getAssignmentWarnings({ member, project, allocation, memberLoad }) {
   const warnings = []
   const existing = project.roster.find((entry) => entry.mId === member.id)
@@ -105,6 +119,88 @@ function getAssignmentWarnings({ member, project, allocation, memberLoad }) {
 
 function Field({ label, children }) {
   return <label className="field"><span className="label">{label}</span>{children}</label>
+}
+
+function SkillRequirementsEditor({ project, team, setProjects }) {
+  const usedSkillIds = Object.keys(project.sr || {})
+  const availableSkills = skills.filter((skill) => !usedSkillIds.includes(skill.id))
+  const [newSkillId, setNewSkillId] = useState(availableSkills[0]?.id || skills[0]?.id || '')
+  const [newLevel, setNewLevel] = useState(3)
+  const gaps = getCoverageGaps(team, project)
+
+  useEffect(() => {
+    const nextAvailable = skills.find((skill) => !Object.keys(project.sr || {}).includes(skill.id))
+    if (nextAvailable) setNewSkillId(nextAvailable.id)
+  }, [project.sr])
+
+  const updateRequirement = (skillId, value) => {
+    setProjects((prev) => prev.map((item) => item.id === project.id ? {
+      ...item,
+      sr: { ...(item.sr || {}), [skillId]: Number(value) },
+    } : item))
+  }
+
+  const removeRequirement = (skillId) => {
+    setProjects((prev) => prev.map((item) => {
+      if (item.id !== project.id) return item
+      const nextSr = { ...(item.sr || {}) }
+      delete nextSr[skillId]
+      return { ...item, sr: nextSr }
+    }))
+  }
+
+  const addRequirement = (e) => {
+    e.preventDefault()
+    if (!newSkillId || project.sr?.[newSkillId]) return
+    setProjects((prev) => prev.map((item) => item.id === project.id ? {
+      ...item,
+      sr: { ...(item.sr || {}), [newSkillId]: Number(newLevel) },
+    } : item))
+  }
+
+  return (
+    <div className="roster-editor">
+      <div className="section-head compact"><div><span className="label">Skill requirements</span><h3>Edit required skills</h3></div></div>
+      <form className="mini-form" onSubmit={addRequirement}>
+        <Field label="Skill">
+          <select className="input" value={newSkillId} onChange={(e) => setNewSkillId(e.target.value)} disabled={!availableSkills.length}>
+            {availableSkills.map((skill) => <option key={skill.id} value={skill.id}>{skill.name}</option>)}
+          </select>
+        </Field>
+        <Field label="Required level">
+          <input className="input" type="number" min="1" max="5" value={newLevel} onChange={(e) => setNewLevel(e.target.value)} />
+        </Field>
+        <div className="form-actions"><button className="subtab active" type="submit" disabled={!availableSkills.length}>Add skill</button></div>
+      </form>
+
+      <div className="stack">
+        {Object.entries(project.sr || {}).length === 0 && <p className="muted">No skill requirements yet.</p>}
+        {Object.entries(project.sr || {}).map(([skillId, level]) => {
+          const skill = skills.find((s) => s.id === skillId)
+          return (
+            <div key={skillId} className="power-row">
+              <div className="req-name"><strong>{skill?.name || skillId}</strong></div>
+              <div className="req-controls">
+                <input className="input req-level" type="number" min="1" max="5" value={level} onChange={(e) => updateRequirement(skillId, e.target.value)} />
+                <button className="subtab danger" type="button" onClick={() => removeRequirement(skillId)}>Remove</button>
+              </div>
+            </div>
+          )
+        })}
+      </div>
+
+      <div className="section-head compact team-subhead"><div><span className="label">Coverage gaps</span></div></div>
+      <div className="stack">
+        {gaps.length === 0 && <p className="muted">No gaps to evaluate until skills are added.</p>}
+        {gaps.map((gap) => (
+          <div key={gap.skillId} className="candidate-panel">
+            <div className="candidate-line"><strong>{gap.name}</strong><span className={gap.covered ? 'badge medium' : 'badge critical'}>{gap.covered ? 'Covered' : 'Gap'}</span></div>
+            <div className="candidate-line small-line"><span>Need {gap.needed}</span><span>Best on team {gap.best}</span></div>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
 }
 
 function ProjectEditor({ project, scenarios, setProjects }) {
@@ -440,6 +536,7 @@ export default function App() {
                       {isOpen && (
                         <>
                           <ProjectEditor project={project} scenarios={scenarios} setProjects={setProjects} />
+                          <SkillRequirementsEditor project={project} team={team} setProjects={setProjects} />
                           <div className="two-col">
                             <div><span className="label">Required skills</span><ul className="chip-list">{requirementList(project.sr).length ? requirementList(project.sr).map((item) => <li key={item}>{item}</li>) : <li>No minimum skill gates</li>}</ul></div>
                             <div><span className="label">Roster summary</span><ul className="list">{project.roster.length ? project.roster.map((entry) => { const member = team.find((person) => person.id === entry.mId); return <li key={entry.id}>{member?.name || entry.mId} · {entry.role} · {entry.alloc}%</li> }) : <li>No one assigned yet</li>}</ul></div>
@@ -555,7 +652,7 @@ export default function App() {
             <div className="page-grid">
               <article className="panel"><span className="label">Upskill target</span><h2>Interaction Design depth</h2><p>Maya and Sam already contribute here. A next hire or coaching plan should strengthen cross-coverage.</p></article>
               <article className="panel"><span className="label">Upskill target</span><h2>Systems + visual pairing</h2><p>Design System v2 depends on strong systems and visual collaboration. Alex is the obvious partner for Sam.</p></article>
-              <article className="panel wide"><span className="label">Fit scoring</span><h2>Assignment recommendations are live</h2><p>Open a project card to see top-fit people, capacity warnings, and assignment guidance.</p></article>
+              <article className="panel wide"><span className="label">Requirements</span><h2>Skill requirement editing is live</h2><p>Open a project card to add, remove, and tune required skills. Fit scoring updates from those changes.</p></article>
             </div>
           )}
           {analyzeView === 'Reports' && (
