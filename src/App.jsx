@@ -1,9 +1,10 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 
 const TABS = ['Home', 'Plan', 'Team', 'Analyze']
 const PLAN_VIEWS = ['Projects', 'Scenarios', 'Timeline']
 const TEAM_VIEWS = ['Roster', 'Skills']
 const ANALYZE_VIEWS = ['Growth', 'Reports']
+const STORAGE_KEY = 'flux2-planner-state-v1'
 
 const disciplines = [
   { id: 'd1', name: 'Product Design', color: '#00e5a0' },
@@ -23,73 +24,51 @@ const skills = [
   { id: 's8', name: 'Content Strategy', cat: 'Strategy', color: '#fb923c' },
 ]
 
-const team = [
+const seedTeam = [
   { id: 't1', name: 'Maya Chen', role: 'Sr. UX Designer', discId: 'd1', cap: 80, emp: 'FTE', avatar: 'MC', sp: { s5: 4, s6: 4, s7: 3 }, powers: ['Workshop Design', 'Storytelling'] },
   { id: 't2', name: 'Jordan Webb', role: 'UX Researcher', discId: 'd4', cap: 100, emp: 'FTE', avatar: 'JW', sp: { s1: 5, s2: 4, s8: 3 }, powers: ['Human Centered Design'] },
   { id: 't3', name: 'Sam Rivera', role: 'UX Architect', discId: 'd3', cap: 100, emp: 'FTE', avatar: 'SR', sp: { s3: 4, s4: 5, s5: 3 }, powers: ['Technical Writing', 'Developer Advocacy'] },
   { id: 't4', name: 'Alex Kim', role: 'Visual Designer', discId: 'd1', cap: 60, emp: 'Contractor', avatar: 'AK', sp: { s7: 4, s6: 3, s8: 2 }, powers: ['Motion Design'] },
 ]
 
-const scenarios = [
+const seedScenarios = [
   { id: 'sc1', name: 'Q3 Roadmap', desc: 'Committed Q3 deliverables', color: '#00e5a0', active: true },
   { id: 'sc2', name: 'Stretch Plan', desc: 'If we hit hiring targets', color: '#38bdf8', active: false },
 ]
 
-const projects = [
-  {
-    id: 'p1', scId: 'sc1', name: 'Mobile App Redesign', type: 'full', stage: 'Design', prio: 'High', due: '2025-09-15', owner: 'Maya Chen', fte: 2,
-    sr: { s5: 3, s7: 3, s6: 3 },
-    roster: [
-      { mId: 't1', alloc: 60, role: 'Lead Designer' },
-      { mId: 't4', alloc: 50, role: 'Visual Designer' },
-    ],
-  },
-  {
-    id: 'p2', scId: 'sc1', name: 'Enterprise Dashboard', type: 'full', stage: 'Deliver', prio: 'Critical', due: '2025-08-31', owner: 'Sam Rivera', fte: 3,
-    sr: { s3: 4, s4: 4, s5: 3 },
-    roster: [
-      { mId: 't3', alloc: 80, role: 'UX Architect' },
-      { mId: 't1', alloc: 30, role: 'IxD Support' },
-    ],
-  },
-  {
-    id: 'p3', scId: 'sc1', name: 'User Research Sprint', type: 'full', stage: 'Discovery', prio: 'Medium', due: '2025-08-15', owner: 'Jordan Webb', fte: 1,
-    sr: { s1: 3, s2: 3 },
-    roster: [
-      { mId: 't2', alloc: 70, role: 'Lead Researcher' },
-    ],
-  },
-  {
-    id: 'p4', scId: 'sc2', name: 'Design System v2', type: 'full', stage: 'Define', prio: 'High', due: '2025-10-31', owner: 'Sam Rivera', fte: 2,
-    sr: { s4: 4, s7: 3 },
-    roster: [
-      { mId: 't3', alloc: 60, role: 'Systems Lead' },
-      { mId: 't4', alloc: 40, role: 'Visual Systems' },
-    ],
-  },
-  {
-    id: 'p5', scId: 'sc1', name: 'Design Guild', type: 'side', stage: 'Discovery', prio: 'Low', due: 'Ongoing', owner: 'Maya Chen', fte: 0.2,
-    sr: {},
-    roster: [
-      { mId: 't1', alloc: 10, role: 'Facilitator' },
-      { mId: 't2', alloc: 10, role: 'Contributor' },
-      { mId: 't3', alloc: 10, role: 'Contributor' },
-    ],
-  },
+const seedProjects = [
+  { id: 'p1', scId: 'sc1', name: 'Mobile App Redesign', type: 'full', stage: 'Design', prio: 'High', due: '2025-09-15', owner: 'Maya Chen', fte: 2, sr: { s5: 3, s7: 3, s6: 3 }, roster: [{ mId: 't1', alloc: 60, role: 'Lead Designer' }, { mId: 't4', alloc: 50, role: 'Visual Designer' }] },
+  { id: 'p2', scId: 'sc1', name: 'Enterprise Dashboard', type: 'full', stage: 'Deliver', prio: 'Critical', due: '2025-08-31', owner: 'Sam Rivera', fte: 3, sr: { s3: 4, s4: 4, s5: 3 }, roster: [{ mId: 't3', alloc: 80, role: 'UX Architect' }, { mId: 't1', alloc: 30, role: 'IxD Support' }] },
+  { id: 'p3', scId: 'sc1', name: 'User Research Sprint', type: 'full', stage: 'Discovery', prio: 'Medium', due: '2025-08-15', owner: 'Jordan Webb', fte: 1, sr: { s1: 3, s2: 3 }, roster: [{ mId: 't2', alloc: 70, role: 'Lead Researcher' }] },
+  { id: 'p4', scId: 'sc2', name: 'Design System v2', type: 'full', stage: 'Define', prio: 'High', due: '2025-10-31', owner: 'Sam Rivera', fte: 2, sr: { s4: 4, s7: 3 }, roster: [{ mId: 't3', alloc: 60, role: 'Systems Lead' }, { mId: 't4', alloc: 40, role: 'Visual Systems' }] },
+  { id: 'p5', scId: 'sc1', name: 'Design Guild', type: 'side', stage: 'Discovery', prio: 'Low', due: 'Ongoing', owner: 'Maya Chen', fte: 0.2, sr: {}, roster: [{ mId: 't1', alloc: 10, role: 'Facilitator' }, { mId: 't2', alloc: 10, role: 'Contributor' }, { mId: 't3', alloc: 10, role: 'Contributor' }] },
 ]
+
+const uid = (prefix) => `${prefix}${Math.random().toString(36).slice(2, 8)}`
+
+function getInitialState() {
+  if (typeof window === 'undefined') {
+    return { team: seedTeam, scenarios: seedScenarios, projects: seedProjects }
+  }
+  const raw = window.localStorage.getItem(STORAGE_KEY)
+  if (!raw) return { team: seedTeam, scenarios: seedScenarios, projects: seedProjects }
+  try {
+    const parsed = JSON.parse(raw)
+    return {
+      team: parsed.team?.length ? parsed.team : seedTeam,
+      scenarios: parsed.scenarios?.length ? parsed.scenarios : seedScenarios,
+      projects: parsed.projects?.length ? parsed.projects : seedProjects,
+    }
+  } catch {
+    return { team: seedTeam, scenarios: seedScenarios, projects: seedProjects }
+  }
+}
 
 function badgeClass(priority) {
   if (priority === 'Critical') return 'badge critical'
   if (priority === 'High') return 'badge high'
   if (priority === 'Medium') return 'badge medium'
   return 'badge low'
-}
-
-function memberLoad(memberId) {
-  return projects.reduce((sum, project) => {
-    const hit = project.roster.find((r) => r.mId === memberId)
-    return sum + (hit ? hit.alloc : 0)
-  }, 0)
 }
 
 function requirementList(sr) {
@@ -99,21 +78,97 @@ function requirementList(sr) {
   })
 }
 
+function rosterLabel(project, team) {
+  return project.roster.map((entry) => {
+    const member = team.find((person) => person.id === entry.mId)
+    return `${member?.name || entry.mId} · ${entry.role} · ${entry.alloc}%`
+  })
+}
+
+function Field({ label, children }) {
+  return (
+    <label className="field">
+      <span className="label">{label}</span>
+      {children}
+    </label>
+  )
+}
+
 export default function App() {
+  const initial = getInitialState()
   const [tab, setTab] = useState('Home')
   const [planView, setPlanView] = useState('Projects')
   const [teamView, setTeamView] = useState('Roster')
   const [analyzeView, setAnalyzeView] = useState('Growth')
+  const [team, setTeam] = useState(initial.team)
+  const [scenarios, setScenarios] = useState(initial.scenarios)
+  const [projects, setProjects] = useState(initial.projects)
+  const [projectForm, setProjectForm] = useState({ name: '', scId: 'sc1', type: 'full', stage: 'Discovery', prio: 'Medium', due: '', owner: '', fte: 1 })
+  const [scenarioForm, setScenarioForm] = useState({ name: '', desc: '', color: '#38bdf8' })
+  const [teamForm, setTeamForm] = useState({ name: '', role: '', discId: 'd1', cap: 100, emp: 'FTE' })
 
-  const activeScenario = scenarios.find((s) => s.active)
-  const activeProjects = useMemo(
-    () => projects.filter((project) => project.scId === activeScenario?.id),
-    [activeScenario],
-  )
+  useEffect(() => {
+    window.localStorage.setItem(STORAGE_KEY, JSON.stringify({ team, scenarios, projects }))
+  }, [team, scenarios, projects])
 
-  const totalFte = activeProjects.reduce((sum, project) => sum + project.fte, 0)
-  const overAllocated = team.filter((member) => memberLoad(member.id) > member.cap)
+  const activeScenario = scenarios.find((s) => s.active) || scenarios[0]
+  const activeProjects = useMemo(() => projects.filter((project) => project.scId === activeScenario?.id), [activeScenario, projects])
+  const memberLoad = (memberId) => projects.reduce((sum, project) => {
+    const hit = project.roster.find((r) => r.mId === memberId)
+    return sum + (hit ? Number(hit.alloc) : 0)
+  }, 0)
+
+  const totalFte = activeProjects.reduce((sum, project) => sum + Number(project.fte || 0), 0)
+  const overAllocated = team.filter((member) => memberLoad(member.id) > Number(member.cap))
   const criticalProjects = activeProjects.filter((project) => project.prio === 'Critical').length
+
+  const addScenario = (e) => {
+    e.preventDefault()
+    if (!scenarioForm.name.trim()) return
+    const newScenario = { id: uid('sc'), ...scenarioForm, active: scenarios.length === 0 }
+    setScenarios((prev) => [...prev.map((item) => ({ ...item, active: false })), newScenario])
+    setScenarioForm({ name: '', desc: '', color: '#38bdf8' })
+  }
+
+  const setActiveScenario = (id) => {
+    setScenarios((prev) => prev.map((item) => ({ ...item, active: item.id === id })))
+  }
+
+  const deleteScenario = (id) => {
+    const nextScenarios = scenarios.filter((item) => item.id !== id)
+    if (!nextScenarios.length) return
+    if (!nextScenarios.some((item) => item.active)) nextScenarios[0].active = true
+    setScenarios([...nextScenarios])
+    setProjects((prev) => prev.filter((project) => project.scId !== id))
+  }
+
+  const addProject = (e) => {
+    e.preventDefault()
+    if (!projectForm.name.trim()) return
+    setProjects((prev) => [...prev, { id: uid('p'), ...projectForm, fte: Number(projectForm.fte), roster: [], sr: {} }])
+    setProjectForm({ name: '', scId: activeScenario?.id || scenarios[0]?.id || '', type: 'full', stage: 'Discovery', prio: 'Medium', due: '', owner: '', fte: 1 })
+  }
+
+  const deleteProject = (id) => setProjects((prev) => prev.filter((project) => project.id !== id))
+
+  const addTeamMember = (e) => {
+    e.preventDefault()
+    if (!teamForm.name.trim()) return
+    const initials = teamForm.name.split(' ').map((part) => part[0]).join('').slice(0, 2).toUpperCase()
+    setTeam((prev) => [...prev, { id: uid('t'), ...teamForm, cap: Number(teamForm.cap), avatar: initials || 'UX', sp: {}, powers: [] }])
+    setTeamForm({ name: '', role: '', discId: 'd1', cap: 100, emp: 'FTE' })
+  }
+
+  const deleteTeamMember = (id) => {
+    setTeam((prev) => prev.filter((member) => member.id !== id))
+    setProjects((prev) => prev.map((project) => ({ ...project, roster: project.roster.filter((entry) => entry.mId !== id) })))
+  }
+
+  const resetAll = () => {
+    setTeam(seedTeam)
+    setScenarios(seedScenarios)
+    setProjects(seedProjects)
+  }
 
   return (
     <div className="app-shell">
@@ -123,80 +178,27 @@ export default function App() {
           <h1>UX Resource Planner</h1>
           <p>Planning, staffing, and visibility for UX workstreams.</p>
         </div>
+        <button className="subtab" onClick={resetAll}>Reset seed data</button>
       </header>
 
       <nav className="tabs">
         {TABS.map((item) => (
-          <button
-            key={item}
-            className={tab === item ? 'tab active' : 'tab'}
-            onClick={() => setTab(item)}
-          >
-            {item}
-          </button>
+          <button key={item} className={tab === item ? 'tab active' : 'tab'} onClick={() => setTab(item)}>{item}</button>
         ))}
       </nav>
 
       {tab === 'Home' && (
         <section className="page-grid">
-          <article className="panel stat-panel">
-            <span className="label">Active scenario</span>
-            <strong>{activeScenario?.name}</strong>
-            <p>{activeScenario?.desc}</p>
-          </article>
-          <article className="panel stat-panel">
-            <span className="label">Active projects</span>
-            <strong>{activeProjects.length}</strong>
-            <p>{criticalProjects} critical priorities in flight</p>
-          </article>
-          <article className="panel stat-panel">
-            <span className="label">Planned FTE</span>
-            <strong>{totalFte.toFixed(1)}</strong>
-            <p>Across roadmap and side-of-desk commitments</p>
-          </article>
-          <article className="panel stat-panel">
-            <span className="label">Allocation risk</span>
-            <strong>{overAllocated.length}</strong>
-            <p>People currently over capacity</p>
-          </article>
+          <article className="panel stat-panel"><span className="label">Active scenario</span><strong>{activeScenario?.name}</strong><p>{activeScenario?.desc}</p></article>
+          <article className="panel stat-panel"><span className="label">Active projects</span><strong>{activeProjects.length}</strong><p>{criticalProjects} critical priorities in flight</p></article>
+          <article className="panel stat-panel"><span className="label">Planned FTE</span><strong>{totalFte.toFixed(1)}</strong><p>Across roadmap and side-of-desk commitments</p></article>
+          <article className="panel stat-panel"><span className="label">Allocation risk</span><strong>{overAllocated.length}</strong><p>People currently over capacity</p></article>
 
           <article className="panel wide">
-            <div className="section-head">
-              <div>
-                <span className="label">Highlights</span>
-                <h2>What needs attention</h2>
-              </div>
-            </div>
+            <div className="section-head"><div><span className="label">Highlights</span><h2>What needs attention</h2></div></div>
             <div className="stack">
-              {overAllocated.map((member) => (
-                <div key={member.id} className="row-card">
-                  <div>
-                    <strong>{member.name}</strong>
-                    <p>{member.role}</p>
-                  </div>
-                  <span className="badge critical">{memberLoad(member.id)}% / {member.cap}%</span>
-                </div>
-              ))}
-              {overAllocated.length === 0 && <p className="muted">No one is over capacity right now.</p>}
-            </div>
-          </article>
-
-          <article className="panel wide">
-            <div className="section-head">
-              <div>
-                <span className="label">Roadmap snapshot</span>
-                <h2>Current projects</h2>
-              </div>
-            </div>
-            <div className="stack">
-              {activeProjects.map((project) => (
-                <div key={project.id} className="project-row">
-                  <div>
-                    <strong>{project.name}</strong>
-                    <p>{project.stage} · Due {project.due} · Owner {project.owner}</p>
-                  </div>
-                  <span className={badgeClass(project.prio)}>{project.prio}</span>
-                </div>
+              {overAllocated.length === 0 ? <p className="muted">No one is over capacity right now.</p> : overAllocated.map((member) => (
+                <div key={member.id} className="row-card"><div><strong>{member.name}</strong><p>{member.role}</p></div><span className="badge critical">{memberLoad(member.id)}% / {member.cap}%</span></div>
               ))}
             </div>
           </article>
@@ -206,80 +208,71 @@ export default function App() {
       {tab === 'Plan' && (
         <section>
           <div className="subtabs">
-            {PLAN_VIEWS.map((item) => (
-              <button key={item} className={planView === item ? 'subtab active' : 'subtab'} onClick={() => setPlanView(item)}>{item}</button>
-            ))}
+            {PLAN_VIEWS.map((item) => <button key={item} className={planView === item ? 'subtab active' : 'subtab'} onClick={() => setPlanView(item)}>{item}</button>)}
           </div>
 
           {planView === 'Projects' && (
-            <div className="stack">
-              {projects.map((project) => (
-                <article key={project.id} className="panel">
-                  <div className="section-head">
-                    <div>
-                      <span className="label">{project.type === 'side' ? 'Side effort' : 'Project'}</span>
-                      <h2>{project.name}</h2>
-                      <p>{project.stage} · Due {project.due} · Owner {project.owner}</p>
+            <>
+              <form className="panel form-grid" onSubmit={addProject}>
+                <div className="section-head"><div><span className="label">Create</span><h2>Add project</h2></div></div>
+                <Field label="Project name"><input className="input" value={projectForm.name} onChange={(e) => setProjectForm({ ...projectForm, name: e.target.value })} /></Field>
+                <Field label="Scenario"><select className="input" value={projectForm.scId} onChange={(e) => setProjectForm({ ...projectForm, scId: e.target.value })}>{scenarios.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></Field>
+                <Field label="Owner"><input className="input" value={projectForm.owner} onChange={(e) => setProjectForm({ ...projectForm, owner: e.target.value })} /></Field>
+                <Field label="Priority"><select className="input" value={projectForm.prio} onChange={(e) => setProjectForm({ ...projectForm, prio: e.target.value })}><option>Low</option><option>Medium</option><option>High</option><option>Critical</option></select></Field>
+                <Field label="Stage"><select className="input" value={projectForm.stage} onChange={(e) => setProjectForm({ ...projectForm, stage: e.target.value })}><option>Discovery</option><option>Define</option><option>Design</option><option>Deliver</option></select></Field>
+                <Field label="Due"><input className="input" value={projectForm.due} onChange={(e) => setProjectForm({ ...projectForm, due: e.target.value })} placeholder="2026-05-01" /></Field>
+                <Field label="FTE"><input className="input" type="number" step="0.1" value={projectForm.fte} onChange={(e) => setProjectForm({ ...projectForm, fte: e.target.value })} /></Field>
+                <div className="form-actions"><button className="tab active" type="submit">Add project</button></div>
+              </form>
+
+              <div className="stack">
+                {projects.map((project) => (
+                  <article key={project.id} className="panel">
+                    <div className="section-head">
+                      <div><span className="label">{project.type === 'side' ? 'Side effort' : 'Project'}</span><h2>{project.name}</h2><p>{project.stage} · Due {project.due || 'TBD'} · Owner {project.owner || 'Unassigned'}</p></div>
+                      <div className="actions"><span className={badgeClass(project.prio)}>{project.prio}</span><button className="subtab danger" onClick={() => deleteProject(project.id)}>Delete</button></div>
                     </div>
-                    <span className={badgeClass(project.prio)}>{project.prio}</span>
-                  </div>
-                  <div className="two-col">
-                    <div>
-                      <span className="label">Required skills</span>
-                      <ul className="chip-list">
-                        {requirementList(project.sr).map((item) => <li key={item}>{item}</li>)}
-                        {requirementList(project.sr).length === 0 && <li>No minimum skill gates</li>}
-                      </ul>
+                    <div className="two-col">
+                      <div><span className="label">Required skills</span><ul className="chip-list">{requirementList(project.sr).length ? requirementList(project.sr).map((item) => <li key={item}>{item}</li>) : <li>No minimum skill gates</li>}</ul></div>
+                      <div><span className="label">Roster</span><ul className="list">{rosterLabel(project, team).length ? rosterLabel(project, team).map((item) => <li key={item}>{item}</li>) : <li>No one assigned yet</li>}</ul></div>
                     </div>
-                    <div>
-                      <span className="label">Roster</span>
-                      <ul className="list">
-                        {project.roster.map((entry) => {
-                          const member = team.find((person) => person.id === entry.mId)
-                          return <li key={`${project.id}-${entry.mId}`}>{member?.name} · {entry.role} · {entry.alloc}%</li>
-                        })}
-                      </ul>
-                    </div>
-                  </div>
-                </article>
-              ))}
-            </div>
+                  </article>
+                ))}
+              </div>
+            </>
           )}
 
           {planView === 'Scenarios' && (
-            <div className="stack">
-              {scenarios.map((scenario) => (
-                <article key={scenario.id} className="panel">
-                  <div className="section-head">
-                    <div>
-                      <span className="label">Scenario</span>
-                      <h2>{scenario.name}</h2>
-                      <p>{scenario.desc}</p>
+            <>
+              <form className="panel form-grid" onSubmit={addScenario}>
+                <div className="section-head"><div><span className="label">Create</span><h2>Add scenario</h2></div></div>
+                <Field label="Scenario name"><input className="input" value={scenarioForm.name} onChange={(e) => setScenarioForm({ ...scenarioForm, name: e.target.value })} /></Field>
+                <Field label="Description"><input className="input" value={scenarioForm.desc} onChange={(e) => setScenarioForm({ ...scenarioForm, desc: e.target.value })} /></Field>
+                <Field label="Color"><input className="input" value={scenarioForm.color} onChange={(e) => setScenarioForm({ ...scenarioForm, color: e.target.value })} /></Field>
+                <div className="form-actions"><button className="tab active" type="submit">Add scenario</button></div>
+              </form>
+              <div className="stack">
+                {scenarios.map((scenario) => (
+                  <article key={scenario.id} className="panel">
+                    <div className="section-head">
+                      <div><span className="label">Scenario</span><h2>{scenario.name}</h2><p>{scenario.desc}</p></div>
+                      <div className="actions">
+                        <button className={scenario.active ? 'subtab active' : 'subtab'} onClick={() => setActiveScenario(scenario.id)}>{scenario.active ? 'Active' : 'Set active'}</button>
+                        {scenarios.length > 1 && <button className="subtab danger" onClick={() => deleteScenario(scenario.id)}>Delete</button>}
+                      </div>
                     </div>
-                    <span className={scenario.active ? 'badge medium' : 'badge low'}>{scenario.active ? 'Active' : 'Inactive'}</span>
-                  </div>
-                </article>
-              ))}
-            </div>
+                  </article>
+                ))}
+              </div>
+            </>
           )}
 
           {planView === 'Timeline' && (
             <article className="panel">
-              <div className="section-head">
-                <div>
-                  <span className="label">Timeline</span>
-                  <h2>Quarter view</h2>
-                </div>
-              </div>
+              <div className="section-head"><div><span className="label">Timeline</span><h2>Quarter view</h2></div></div>
               <div className="timeline">
                 {activeProjects.map((project) => (
-                  <div key={project.id} className="timeline-row">
-                    <div className="timeline-name">{project.name}</div>
-                    <div className="timeline-bar-wrap">
-                      <div className="timeline-bar" style={{ width: `${Math.max(project.fte * 22, 16)}%` }} />
-                    </div>
-                    <div className="timeline-meta">{project.due}</div>
-                  </div>
+                  <div key={project.id} className="timeline-row"><div className="timeline-name">{project.name}</div><div className="timeline-bar-wrap"><div className="timeline-bar" style={{ width: `${Math.max(Number(project.fte) * 22, 16)}%` }} /></div></div><div className="timeline-meta">{project.due || 'TBD'}</div></div>
                 ))}
               </div>
             </article>
@@ -290,60 +283,48 @@ export default function App() {
       {tab === 'Team' && (
         <section>
           <div className="subtabs">
-            {TEAM_VIEWS.map((item) => (
-              <button key={item} className={teamView === item ? 'subtab active' : 'subtab'} onClick={() => setTeamView(item)}>{item}</button>
-            ))}
+            {TEAM_VIEWS.map((item) => <button key={item} className={teamView === item ? 'subtab active' : 'subtab'} onClick={() => setTeamView(item)}>{item}</button>)}
           </div>
 
           {teamView === 'Roster' && (
-            <div className="stack roster-grid">
-              {team.map((member) => {
-                const load = memberLoad(member.id)
-                const discipline = disciplines.find((item) => item.id === member.discId)
-                return (
-                  <article key={member.id} className="panel">
-                    <div className="person-head">
-                      <div className="avatar">{member.avatar}</div>
-                      <div>
-                        <h2>{member.name}</h2>
-                        <p>{member.role}</p>
+            <>
+              <form className="panel form-grid" onSubmit={addTeamMember}>
+                <div className="section-head"><div><span className="label">Create</span><h2>Add team member</h2></div></div>
+                <Field label="Name"><input className="input" value={teamForm.name} onChange={(e) => setTeamForm({ ...teamForm, name: e.target.value })} /></Field>
+                <Field label="Role"><input className="input" value={teamForm.role} onChange={(e) => setTeamForm({ ...teamForm, role: e.target.value })} /></Field>
+                <Field label="Discipline"><select className="input" value={teamForm.discId} onChange={(e) => setTeamForm({ ...teamForm, discId: e.target.value })}>{disciplines.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></Field>
+                <Field label="Capacity %"><input className="input" type="number" value={teamForm.cap} onChange={(e) => setTeamForm({ ...teamForm, cap: e.target.value })} /></Field>
+                <Field label="Type"><select className="input" value={teamForm.emp} onChange={(e) => setTeamForm({ ...teamForm, emp: e.target.value })}><option>FTE</option><option>Contractor</option><option>Part-time</option><option>Consultant</option></select></Field>
+                <div className="form-actions"><button className="tab active" type="submit">Add person</button></div>
+              </form>
+
+              <div className="stack roster-grid">
+                {team.map((member) => {
+                  const load = memberLoad(member.id)
+                  const discipline = disciplines.find((item) => item.id === member.discId)
+                  return (
+                    <article key={member.id} className="panel">
+                      <div className="section-head">
+                        <div className="person-head"><div className="avatar">{member.avatar}</div><div><h2>{member.name}</h2><p>{member.role}</p></div></div>
+                        <button className="subtab danger" onClick={() => deleteTeamMember(member.id)}>Delete</button>
                       </div>
-                    </div>
-                    <div className="meta-block">
-                      <span className="pill" style={{ borderColor: discipline?.color, color: discipline?.color }}>{discipline?.name}</span>
-                      <span className="pill">{member.emp}</span>
-                    </div>
-                    <div className="capacity-line">
-                      <span>{load}% allocated</span>
-                      <span>{member.cap}% cap</span>
-                    </div>
-                    <div className="meter"><div className={load > member.cap ? 'meter-fill danger' : 'meter-fill'} style={{ width: `${Math.min(load, 100)}%` }} /></div>
-                    <p className="muted small">Superpowers: {member.powers.join(', ')}</p>
-                  </article>
-                )
-              })}
-            </div>
+                      <div className="meta-block"><span className="pill" style={{ borderColor: discipline?.color, color: discipline?.color }}>{discipline?.name}</span><span className="pill">{member.emp}</span></div>
+                      <div className="capacity-line"><span>{load}% allocated</span><span>{member.cap}% cap</span></div>
+                      <div className="meter"><div className={load > member.cap ? 'meter-fill danger' : 'meter-fill'} style={{ width: `${Math.min(load, 100)}%` }} /></div></div>
+                      <p className="muted small">Superpowers: {member.powers?.join(', ') || 'None yet'}</p>
+                    </article>
+                  )
+                })}
+              </div>
+            </>
           )}
 
           {teamView === 'Skills' && (
             <article className="panel">
-              <div className="section-head">
-                <div>
-                  <span className="label">Skills matrix</span>
-                  <h2>Capabilities on the team</h2>
-                </div>
-              </div>
+              <div className="section-head"><div><span className="label">Skills matrix</span><h2>Capabilities on the team</h2></div></div>
               <div className="skill-matrix">
-                <div className="matrix-head matrix-row">
-                  <div>Skill</div>
-                  {team.map((member) => <div key={member.id}>{member.avatar}</div>)}
-                </div>
-                {skills.map((skill) => (
-                  <div key={skill.id} className="matrix-row">
-                    <div>{skill.name}</div>
-                    {team.map((member) => <div key={member.id}>{member.sp[skill.id] || '—'}</div>)}
-                  </div>
-                ))}
+                <div className="matrix-head matrix-row"><div>Skill</div>{team.map((member) => <div key={member.id}>{member.avatar}</div>)}</div>
+                {skills.map((skill) => <div key={skill.id} className="matrix-row"><div>{skill.name}</div>{team.map((member) => <div key={member.id}>{member.sp?.[skill.id] || '—'}</div>)}</div>) }
               </div>
             </article>
           )}
@@ -353,46 +334,17 @@ export default function App() {
       {tab === 'Analyze' && (
         <section>
           <div className="subtabs">
-            {ANALYZE_VIEWS.map((item) => (
-              <button key={item} className={analyzeView === item ? 'subtab active' : 'subtab'} onClick={() => setAnalyzeView(item)}>{item}</button>
-            ))}
+            {ANALYZE_VIEWS.map((item) => <button key={item} className={analyzeView === item ? 'subtab active' : 'subtab'} onClick={() => setAnalyzeView(item)}>{item}</button>)}
           </div>
-
           {analyzeView === 'Growth' && (
             <div className="page-grid">
-              <article className="panel">
-                <span className="label">Upskill target</span>
-                <h2>Interaction Design depth</h2>
-                <p>Maya and Sam already contribute here. A next hire or coaching plan should strengthen cross-coverage.</p>
-              </article>
-              <article className="panel">
-                <span className="label">Upskill target</span>
-                <h2>Systems + visual pairing</h2>
-                <p>Design System v2 depends on strong systems and visual collaboration. Alex is the obvious partner for Sam.</p>
-              </article>
-              <article className="panel wide">
-                <span className="label">Risk summary</span>
-                <h2>Capacity and continuity</h2>
-                <p>The active roadmap leans heavily on Maya and Sam. The healthiest next step is either redistributing delivery support or adding another senior craft-focused designer.</p>
-              </article>
+              <article className="panel"><span className="label">Upskill target</span><h2>Interaction Design depth</h2><p>Maya and Sam already contribute here. A next hire or coaching plan should strengthen cross-coverage.</p></article>
+              <article className="panel"><span className="label">Upskill target</span><h2>Systems + visual pairing</h2><p>Design System v2 depends on strong systems and visual collaboration. Alex is the obvious partner for Sam.</p></article>
+              <article className="panel wide"><span className="label">Persistence</span><h2>CRUD is back</h2><p>Projects, scenarios, and people now save in local storage on this device.</p></article>
             </div>
           )}
-
           {analyzeView === 'Reports' && (
-            <article className="panel">
-              <div className="section-head">
-                <div>
-                  <span className="label">Report</span>
-                  <h2>Executive summary</h2>
-                </div>
-              </div>
-              <ul className="list">
-                <li>{activeProjects.length} active efforts tied to the current roadmap</li>
-                <li>{overAllocated.length} team members exceed capacity</li>
-                <li>{criticalProjects} critical project currently in flight</li>
-                <li>{totalFte.toFixed(1)} FTE planned in the active scenario</li>
-              </ul>
-            </article>
+            <article className="panel"><div className="section-head"><div><span className="label">Report</span><h2>Executive summary</h2></div></div><ul className="list"><li>{activeProjects.length} active efforts tied to the current roadmap</li><li>{overAllocated.length} team members exceed capacity</li><li>{criticalProjects} critical project currently in flight</li><li>{totalFte.toFixed(1)} FTE planned in the active scenario</li></ul></article>
           )}
         </section>
       )}
