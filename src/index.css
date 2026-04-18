@@ -114,7 +114,8 @@ select {
   box-shadow: 0 14px 30px rgba(0, 0, 0, 0.18);
 }
 
-.form-grid {
+.form-grid,
+.mini-form {
   display: grid;
   gap: 14px;
 }
@@ -149,10 +150,19 @@ select {
   margin-bottom: 14px;
 }
 
+.section-head.compact {
+  margin-bottom: 10px;
+}
+
 .section-head h2,
+.section-head h3,
 .panel h2 {
   margin: 4px 0 0;
   font-size: 1.2rem;
+}
+
+.section-head h3 {
+  font-size: 1rem;
 }
 
 .panel p {
@@ -165,7 +175,8 @@ select {
 }
 
 .row-card,
-.project-row {
+.project-row,
+.roster-row {
   display: flex;
   justify-content: space-between;
   gap: 14px;
@@ -174,6 +185,26 @@ select {
   border-radius: 14px;
   background: rgba(148, 163, 184, 0.08);
   border: 1px solid rgba(148, 163, 184, 0.1);
+}
+
+.roster-editor {
+  margin-top: 18px;
+  border-top: 1px solid #243250;
+  padding-top: 16px;
+}
+
+.roster-main {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 220px;
+}
+
+.roster-fields {
+  display: grid;
+  grid-template-columns: 1fr 120px;
+  gap: 12px;
+  flex: 1;
 }
 
 .badge {
@@ -354,7 +385,8 @@ select {
   }
 
   .two-col,
-  .form-grid {
+  .form-grid,
+  .mini-form {
     grid-template-columns: 1fr 1fr;
   }
 
@@ -378,8 +410,18 @@ select {
     padding: 16px;
   }
 
-  .topbar {
+  .topbar,
+  .roster-row {
     flex-direction: column;
+  }
+
+  .roster-main,
+  .roster-fields {
+    width: 100%;
+  }
+
+  .roster-fields {
+    grid-template-columns: 1fr;
   }
 
   .timeline-row {
