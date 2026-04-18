@@ -115,7 +115,8 @@ select {
 }
 
 .form-grid,
-.mini-form {
+.mini-form,
+.skill-edit-grid {
   display: grid;
   gap: 14px;
 }
@@ -176,7 +177,10 @@ select {
 
 .row-card,
 .project-row,
-.roster-row {
+.roster-row,
+.power-row,
+.fit-card,
+.candidate-panel {
   display: flex;
   justify-content: space-between;
   gap: 14px;
@@ -185,6 +189,11 @@ select {
   border-radius: 14px;
   background: rgba(148, 163, 184, 0.08);
   border: 1px solid rgba(148, 163, 184, 0.1);
+}
+
+.power-row,
+.candidate-panel {
+  align-items: stretch;
 }
 
 .roster-editor {
@@ -196,6 +205,7 @@ select {
 .roster-main {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 10px;
   min-width: 220px;
 }
@@ -205,6 +215,56 @@ select {
   grid-template-columns: 1fr 120px;
   gap: 12px;
   flex: 1;
+}
+
+.fit-summary-grid {
+  display: grid;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.fit-card {
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.fit-rank {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #7dd3fc;
+}
+
+.fit-meta,
+.small-line {
+  color: #9fb0d3;
+  font-size: 0.9rem;
+}
+
+.candidate-panel {
+  flex-direction: column;
+  align-items: stretch;
+  margin-bottom: 14px;
+}
+
+.candidate-line {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+}
+
+.warning-list {
+  margin: 10px 0 0;
+  padding-left: 18px;
+  color: #fca5a5;
+}
+
+.warning-list li {
+  margin: 6px 0;
+}
+
+.team-subhead {
+  margin-top: 14px;
 }
 
 .badge {
@@ -386,8 +446,13 @@ select {
 
   .two-col,
   .form-grid,
-  .mini-form {
+  .mini-form,
+  .skill-edit-grid {
     grid-template-columns: 1fr 1fr;
+  }
+
+  .fit-summary-grid {
+    grid-template-columns: repeat(3, 1fr);
   }
 
   .form-actions {
@@ -411,7 +476,9 @@ select {
   }
 
   .topbar,
-  .roster-row {
+  .roster-row,
+  .power-row,
+  .candidate-line {
     flex-direction: column;
   }
 
