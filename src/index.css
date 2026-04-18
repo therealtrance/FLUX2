@@ -18,7 +18,9 @@ body {
   color: #e5eefc;
 }
 
-button {
+button,
+input,
+select {
   font: inherit;
 }
 
@@ -34,6 +36,10 @@ button {
 
 .topbar {
   padding: 8px 0 18px;
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: flex-start;
 }
 
 .topbar h1 {
@@ -57,10 +63,16 @@ button {
 }
 
 .tabs,
-.subtabs {
+.subtabs,
+.actions,
+.form-actions {
   display: flex;
   flex-wrap: wrap;
   gap: 10px;
+}
+
+.tabs,
+.subtabs {
   margin-bottom: 18px;
 }
 
@@ -81,6 +93,11 @@ button {
   border-color: transparent;
 }
 
+.subtab.danger {
+  border-color: rgba(239, 68, 68, 0.3);
+  color: #fca5a5;
+}
+
 .page-grid {
   display: grid;
   grid-template-columns: repeat(12, 1fr);
@@ -95,6 +112,25 @@ button {
   border-radius: 18px;
   padding: 18px;
   box-shadow: 0 14px 30px rgba(0, 0, 0, 0.18);
+}
+
+.form-grid {
+  display: grid;
+  gap: 14px;
+}
+
+.field {
+  display: grid;
+  gap: 8px;
+}
+
+.input {
+  width: 100%;
+  border: 1px solid #31415f;
+  border-radius: 12px;
+  padding: 10px 12px;
+  background: rgba(2, 6, 23, 0.5);
+  color: #e5eefc;
 }
 
 .stat-panel {
@@ -317,8 +353,13 @@ button {
     grid-column: span 6;
   }
 
-  .two-col {
+  .two-col,
+  .form-grid {
     grid-template-columns: 1fr 1fr;
+  }
+
+  .form-actions {
+    grid-column: 1 / -1;
   }
 }
 
@@ -335,6 +376,10 @@ button {
 @media (max-width: 700px) {
   .app-shell {
     padding: 16px;
+  }
+
+  .topbar {
+    flex-direction: column;
   }
 
   .timeline-row {
