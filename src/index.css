@@ -217,7 +217,8 @@ select {
   flex: 1;
 }
 
-.fit-summary-grid {
+.fit-summary-grid,
+.compare-grid {
   display: grid;
   gap: 12px;
   margin-bottom: 14px;
@@ -265,6 +266,20 @@ select {
 
 .team-subhead {
   margin-top: 14px;
+}
+
+.req-name {
+  min-width: 160px;
+}
+
+.req-controls {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+.req-level {
+  width: 90px;
 }
 
 .badge {
@@ -451,6 +466,11 @@ select {
     grid-template-columns: 1fr 1fr;
   }
 
+  .fit-summary-grid,
+  .compare-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
   .fit-summary-grid {
     grid-template-columns: repeat(3, 1fr);
   }
@@ -478,7 +498,8 @@ select {
   .topbar,
   .roster-row,
   .power-row,
-  .candidate-line {
+  .candidate-line,
+  .req-controls {
     flex-direction: column;
   }
 
@@ -489,6 +510,10 @@ select {
 
   .roster-fields {
     grid-template-columns: 1fr;
+  }
+
+  .req-level {
+    width: 100%;
   }
 
   .timeline-row {
