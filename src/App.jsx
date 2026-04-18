@@ -76,6 +76,33 @@ function requirementList(sr) {
   })
 }
 
+function getSkillCoverage(member, sr) {
+  const requirements = Object.entries(sr || {})
+  if (!requirements.length) return { score: 100, covered: 0, total: 0 }
+  let score = 0
+  let covered = 0
+  for (const [skillId, needed] of requirements) {
+    const have = Number(member.sp?.[skillId] || 0)
+    const ratio = Math.min(have / Number(needed || 1), 1)
+    if (have >= Number(needed || 0)) covered += 1
+    score += ratio
+  }
+  return {
+    score: Math.round((score / requirements.length) * 100),
+    covered,
+    total: requirements.length,
+  }
+}
+
+function getAssignmentWarnings({ member, project, allocation, memberLoad }) {
+  const warnings = []
+  const existing = project.roster.find((entry) => entry.mId === member.id)
+  if (existing) warnings.push('Already assigned to this project')
+  const projectedLoad = memberLoad(member.id) + Number(allocation || 0)
+  if (projectedLoad > Number(member.cap || 0)) warnings.push(`Would exceed capacity by ${projectedLoad - Number(member.cap || 0)}%`)
+  return warnings
+}
+
 function Field({ label, children }) {
   return <label className="field"><span className="label">{label}</span>{children}</label>
 }
@@ -110,9 +137,7 @@ function TeamEditor({ member, setTeam }) {
     setTeam((prev) => prev.map((item) => {
       if (item.id !== member.id) return item
       const next = { ...item, [field]: field === 'cap' ? Number(value) : value }
-      if (field === 'name') {
-        next.avatar = value.split(' ').map((part) => part[0]).join('').slice(0, 2).toUpperCase() || item.avatar
-      }
+      if (field === 'name') next.avatar = value.split(' ').map((part) => part[0]).join('').slice(0, 2).toUpperCase() || item.avatar
       return next
     }))
   }
@@ -126,17 +151,9 @@ function TeamEditor({ member, setTeam }) {
     }))
   }
 
-  const addPower = () => {
-    setTeam((prev) => prev.map((item) => item.id === member.id ? { ...item, powers: [...(item.powers || []), ''] } : item))
-  }
-
-  const removePower = (index) => {
-    setTeam((prev) => prev.map((item) => item.id === member.id ? { ...item, powers: (item.powers || []).filter((_, i) => i !== index) } : item))
-  }
-
-  const updateSkill = (skillId, value) => {
-    setTeam((prev) => prev.map((item) => item.id === member.id ? { ...item, sp: { ...(item.sp || {}), [skillId]: value === '' ? undefined : Number(value) } } : item))
-  }
+  const addPower = () => setTeam((prev) => prev.map((item) => item.id === member.id ? { ...item, powers: [...(item.powers || []), ''] } : item))
+  const removePower = (index) => setTeam((prev) => prev.map((item) => item.id === member.id ? { ...item, powers: (item.powers || []).filter((_, i) => i !== index) } : item))
+  const updateSkill = (skillId, value) => setTeam((prev) => prev.map((item) => item.id === member.id ? { ...item, sp: { ...(item.sp || {}), [skillId]: value === '' ? undefined : Number(value) } } : item))
 
   return (
     <div className="roster-editor">
@@ -179,6 +196,29 @@ function RosterEditor({ project, team, setProjects, memberLoad }) {
     setNewRoster((prev) => ({ ...prev, mId: team[0]?.id || '' }))
   }, [team])
 
+  const recommendations = useMemo(() => {
+    return [...team].map((member) => {
+      const fit = getSkillCoverage(member, project.sr)
+      const currentLoad = memberLoad(member.id)
+      const remaining = Number(member.cap || 0) - currentLoad
+      const warnings = getAssignmentWarnings({ member, project, allocation: newRoster.alloc, memberLoad })
+      return {
+        member,
+        fitScore: fit.score,
+        covered: fit.covered,
+        total: fit.total,
+        currentLoad,
+        remaining,
+        warnings,
+      }
+    }).sort((a, b) => {
+      if (b.fitScore !== a.fitScore) return b.fitScore - a.fitScore
+      return b.remaining - a.remaining
+    })
+  }, [team, project, memberLoad, newRoster.alloc])
+
+  const selectedRecommendation = recommendations.find((item) => item.member.id === newRoster.mId)
+
   const updateRosterItem = (rosterId, field, value) => {
     setProjects((prev) => prev.map((item) => item.id === project.id ? {
       ...item,
@@ -203,12 +243,38 @@ function RosterEditor({ project, team, setProjects, memberLoad }) {
   return (
     <div className="roster-editor">
       <div className="section-head compact"><div><span className="label">Roster assignment</span><h3>Assign and edit people</h3></div></div>
+
+      <div className="fit-summary-grid">
+        {recommendations.slice(0, 3).map((item, index) => (
+          <div key={item.member.id} className="fit-card">
+            <div className="fit-rank">#{index + 1}</div>
+            <strong>{item.member.name}</strong>
+            <div className="fit-meta">Fit {item.fitScore}% · Free {item.remaining}%</div>
+            <div className="fit-meta">Coverage {item.covered}/{item.total || 0}</div>
+          </div>
+        ))}
+      </div>
+
       <form className="mini-form" onSubmit={addRosterItem}>
-        <Field label="Person"><select className="input" value={newRoster.mId} onChange={(e) => setNewRoster({ ...newRoster, mId: e.target.value })}>{team.map((member) => <option key={member.id} value={member.id}>{member.name}</option>)}</select></Field>
+        <Field label="Person"><select className="input" value={newRoster.mId} onChange={(e) => setNewRoster({ ...newRoster, mId: e.target.value })}>{recommendations.map((item) => <option key={item.member.id} value={item.member.id}>{item.member.name} · Fit {item.fitScore}% · Free {item.remaining}%</option>)}</select></Field>
         <Field label="Role"><input className="input" value={newRoster.role} onChange={(e) => setNewRoster({ ...newRoster, role: e.target.value })} placeholder="Lead Designer" /></Field>
         <Field label="Alloc %"><input className="input" type="number" min="1" max="100" value={newRoster.alloc} onChange={(e) => setNewRoster({ ...newRoster, alloc: e.target.value })} /></Field>
         <div className="form-actions"><button className="subtab active" type="submit">Assign</button></div>
       </form>
+
+      {selectedRecommendation && (
+        <div className="candidate-panel">
+          <div className="candidate-line"><strong>{selectedRecommendation.member.name}</strong><span className="badge low">Fit {selectedRecommendation.fitScore}%</span></div>
+          <div className="candidate-line small-line"><span>Skill coverage {selectedRecommendation.covered}/{selectedRecommendation.total || 0}</span><span>Current load {selectedRecommendation.currentLoad}% · Free {selectedRecommendation.remaining}%</span></div>
+          {selectedRecommendation.warnings.length > 0 ? (
+            <ul className="warning-list">
+              {selectedRecommendation.warnings.map((warning) => <li key={warning}>{warning}</li>)}
+            </ul>
+          ) : (
+            <p className="muted">No assignment warnings for this selection.</p>
+          )}
+        </div>
+      )}
 
       <div className="stack">
         {project.roster.length === 0 && <p className="muted">No one assigned yet.</p>}
@@ -216,9 +282,10 @@ function RosterEditor({ project, team, setProjects, memberLoad }) {
           const member = team.find((person) => person.id === entry.mId)
           const totalLoad = member ? memberLoad(member.id) : 0
           const over = member ? totalLoad > Number(member.cap) : false
+          const fit = member ? getSkillCoverage(member, project.sr) : { score: 0 }
           return (
             <div key={entry.id} className="roster-row">
-              <div className="roster-main"><strong>{member?.name || entry.mId}</strong><span className={over ? 'badge critical' : 'badge low'}>{totalLoad}% / {member?.cap ?? '—'}%</span></div>
+              <div className="roster-main"><strong>{member?.name || entry.mId}</strong><span className={over ? 'badge critical' : 'badge low'}>{totalLoad}% / {member?.cap ?? '—'}%</span><span className="badge medium">Fit {fit.score}%</span></div>
               <div className="roster-fields">
                 <Field label="Role"><input className="input" value={entry.role} onChange={(e) => updateRosterItem(entry.id, 'role', e.target.value)} /></Field>
                 <Field label="Alloc %"><input className="input" type="number" min="1" max="100" value={entry.alloc} onChange={(e) => updateRosterItem(entry.id, 'alloc', e.target.value)} /></Field>
@@ -488,7 +555,7 @@ export default function App() {
             <div className="page-grid">
               <article className="panel"><span className="label">Upskill target</span><h2>Interaction Design depth</h2><p>Maya and Sam already contribute here. A next hire or coaching plan should strengthen cross-coverage.</p></article>
               <article className="panel"><span className="label">Upskill target</span><h2>Systems + visual pairing</h2><p>Design System v2 depends on strong systems and visual collaboration. Alex is the obvious partner for Sam.</p></article>
-              <article className="panel wide"><span className="label">Editing</span><h2>Team editing is live</h2><p>Open a team card to edit profile details, superpowers, and skill ratings.</p></article>
+              <article className="panel wide"><span className="label">Fit scoring</span><h2>Assignment recommendations are live</h2><p>Open a project card to see top-fit people, capacity warnings, and assignment guidance.</p></article>
             </div>
           )}
           {analyzeView === 'Reports' && (
