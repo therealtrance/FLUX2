@@ -80,6 +80,61 @@ function Field({ label, children }) {
   return <label className="field"><span className="label">{label}</span>{children}</label>
 }
 
+function ProjectEditor({ project, scenarios, setProjects }) {
+  const updateProject = (field, value) => {
+    setProjects((prev) => prev.map((item) => item.id === project.id ? {
+      ...item,
+      [field]: field === 'fte' ? Number(value) : value,
+    } : item))
+  }
+
+  return (
+    <div className="roster-editor">
+      <div className="section-head compact">
+        <div>
+          <span className="label">Project details</span>
+          <h3>Edit project</h3>
+        </div>
+      </div>
+      <div className="mini-form">
+        <Field label="Project name">
+          <input className="input" value={project.name} onChange={(e) => updateProject('name', e.target.value)} />
+        </Field>
+        <Field label="Owner">
+          <input className="input" value={project.owner || ''} onChange={(e) => updateProject('owner', e.target.value)} />
+        </Field>
+        <Field label="Scenario">
+          <select className="input" value={project.scId} onChange={(e) => updateProject('scId', e.target.value)}>
+            {scenarios.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
+          </select>
+        </Field>
+        <Field label="Type">
+          <select className="input" value={project.type} onChange={(e) => updateProject('type', e.target.value)}>
+            <option value="full">full</option>
+            <option value="side">side</option>
+          </select>
+        </Field>
+        <Field label="Priority">
+          <select className="input" value={project.prio} onChange={(e) => updateProject('prio', e.target.value)}>
+            <option>Low</option><option>Medium</option><option>High</option><option>Critical</option>
+          </select>
+        </Field>
+        <Field label="Stage">
+          <select className="input" value={project.stage} onChange={(e) => updateProject('stage', e.target.value)}>
+            <option>Discovery</option><option>Define</option><option>Design</option><option>Deliver</option>
+          </select>
+        </Field>
+        <Field label="Due">
+          <input className="input" value={project.due || ''} onChange={(e) => updateProject('due', e.target.value)} placeholder="2026-05-01" />
+        </Field>
+        <Field label="FTE">
+          <input className="input" type="number" step="0.1" value={project.fte} onChange={(e) => updateProject('fte', e.target.value)} />
+        </Field>
+      </div>
+    </div>
+  )
+}
+
 function RosterEditor({ project, team, setProjects, memberLoad }) {
   const [newRoster, setNewRoster] = useState({ mId: team[0]?.id || '', alloc: 25, role: '' })
 
@@ -296,6 +351,7 @@ export default function App() {
                       </div>
                       {isOpen && (
                         <>
+                          <ProjectEditor project={project} scenarios={scenarios} setProjects={setProjects} />
                           <div className="two-col">
                             <div><span className="label">Required skills</span><ul className="chip-list">{requirementList(project.sr).length ? requirementList(project.sr).map((item) => <li key={item}>{item}</li>) : <li>No minimum skill gates</li>}</ul></div>
                             <div><span className="label">Roster summary</span><ul className="list">{project.roster.length ? project.roster.map((entry) => { const member = team.find((person) => person.id === entry.mId); return <li key={entry.id}>{member?.name || entry.mId} · {entry.role} · {entry.alloc}%</li> }) : <li>No one assigned yet</li>}</ul></div>
@@ -411,7 +467,7 @@ export default function App() {
             <div className="page-grid">
               <article className="panel"><span className="label">Upskill target</span><h2>Interaction Design depth</h2><p>Maya and Sam already contribute here. A next hire or coaching plan should strengthen cross-coverage.</p></article>
               <article className="panel"><span className="label">Upskill target</span><h2>Systems + visual pairing</h2><p>Design System v2 depends on strong systems and visual collaboration. Alex is the obvious partner for Sam.</p></article>
-              <article className="panel wide"><span className="label">Mobile fix</span><h2>Cards now open</h2><p>Each project now has an Open button so you can reveal the roster editor on mobile.</p></article>
+              <article className="panel wide"><span className="label">Editing</span><h2>Inline project editing is live</h2><p>Open a project card to edit project details, then manage roster assignments underneath.</p></article>
             </div>
           )}
           {analyzeView === 'Reports' && (
