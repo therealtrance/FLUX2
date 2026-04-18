@@ -336,7 +336,15 @@ export default function App() {
             <article className="panel">
               <div className="section-head"><div><span className="label">Timeline</span><h2>Quarter view</h2></div></div>
               <div className="timeline">
-                {activeProjects.map((project) => <div key={project.id} className="timeline-row"><div className="timeline-name">{project.name}</div><div className="timeline-bar-wrap"><div className="timeline-bar" style={{ width: `${Math.max(Number(project.fte) * 22, 16)}%` }} /></div></div><div className="timeline-meta">{project.due || 'TBD'}</div></div>)}
+                {activeProjects.map((project) => (
+                  <div key={project.id} className="timeline-row">
+                    <div className="timeline-name">{project.name}</div>
+                    <div className="timeline-bar-wrap">
+                      <div className="timeline-bar" style={{ width: `${Math.max(Number(project.fte) * 22, 16)}%` }} />
+                    </div>
+                    <div className="timeline-meta">{project.due || 'TBD'}</div>
+                  </div>
+                ))}
               </div>
             </article>
           )}
