@@ -98,6 +98,34 @@ function getCoverageGaps(team, project) {
   })
 }
 
+function getProjectAssignedFitAverage(project, team) {
+  if (!project.roster?.length) return 0
+  const fits = project.roster.map((entry) => {
+    const member = team.find((person) => person.id === entry.mId)
+    if (!member) return 0
+    return getSkillCoverage(member, project.sr).score
+  })
+  return Math.round(fits.reduce((sum, score) => sum + score, 0) / fits.length)
+}
+
+function getProjectRisk(project, team) {
+  const gaps = getCoverageGaps(team, project).filter((gap) => !gap.covered)
+  const avgFit = getProjectAssignedFitAverage(project, team)
+  const reasons = []
+  if (!project.owner) reasons.push('No owner')
+  if (!project.roster?.length) reasons.push('No roster')
+  if (gaps.length) reasons.push(`${gaps.length} uncovered skill gap${gaps.length > 1 ? 's' : ''}`)
+  if ((project.prio === 'Critical' || project.prio === 'High') && avgFit > 0 && avgFit < 80) reasons.push(`Assigned fit ${avgFit}%`)
+  if (project.prio === 'Critical' && !project.roster?.length) reasons.push('Critical work without staffing')
+  return {
+    avgFit,
+    gaps,
+    riskCount: reasons.length,
+    reasons,
+    isRisk: reasons.length > 0,
+  }
+}
+
 function getAssignmentWarnings({ member, project, allocation, memberLoad }) {
   const warnings = []
   const existing = project.roster.find((entry) => entry.mId === member.id)
@@ -151,6 +179,18 @@ function getScenarioAssignedFitAverage(projects, team, scenarioId) {
   }
   if (!fits.length) return 0
   return Math.round(fits.reduce((sum, score) => sum + score, 0) / fits.length)
+}
+
+function getScenarioHealth(projects, team, scenarioId) {
+  const scenarioProjects = getScenarioProjects(projects, scenarioId)
+  const riskProjects = scenarioProjects.filter((project) => getProjectRisk(project, team).isRisk)
+  const gaps = getScenarioSkillGaps(projects, team, scenarioId).filter((gap) => !gap.covered)
+  return {
+    riskProjects: riskProjects.length,
+    uncoveredGaps: gaps.length,
+    avgFit: getScenarioAssignedFitAverage(projects, team, scenarioId),
+    overCapacity: getScenarioOverCapacityCount(projects, team, scenarioId),
+  }
 }
 
 function compareProjects(projectsA, projectsB) {
@@ -407,6 +447,28 @@ export default function App() {
   const totalFte = activeProjects.reduce((sum, project) => sum + Number(project.fte || 0), 0)
   const overAllocated = team.filter((member) => memberLoad(member.id) > Number(member.cap))
   const criticalProjects = activeProjects.filter((project) => project.prio === 'Critical').length
+  const activeScenarioHealth = getScenarioHealth(projects, team, activeScenario?.id)
+  const activeScenarioGaps = getScenarioSkillGaps(projects, team, activeScenario?.id).filter((gap) => !gap.covered)
+  const riskProjects = activeProjects
+    .map((project) => ({ project, ...getProjectRisk(project, team) }))
+    .filter((item) => item.isRisk)
+    .sort((a, b) => b.riskCount - a.riskCount || a.avgFit - b.avgFit)
+  const overloadedMembers = team
+    .map((member) => ({ member, load: memberLoad(member.id), overBy: memberLoad(member.id) - Number(member.cap || 0) }))
+    .filter((item) => item.load > Number(item.member.cap || 0))
+    .sort((a, b) => b.overBy - a.overBy)
+  const immediateActions = [
+    ...overloadedMembers.slice(0, 2).map((item) => ({
+      title: `Rebalance ${item.member.name}`,
+      detail: `${item.load}% / ${item.member.cap}% cap`,
+      priority: 'Critical',
+    })),
+    ...riskProjects.slice(0, 3).map((item) => ({
+      title: item.project.name,
+      detail: item.reasons.join(' · '),
+      priority: item.project.prio,
+    })),
+  ].slice(0, 5)
 
   const compareProjectsA = getScenarioProjects(projects, compareA)
   const compareProjectsB = getScenarioProjects(projects, compareB)
@@ -418,6 +480,8 @@ export default function App() {
     const loadB = getScenarioMemberLoad(projects, member.id, compareB)
     return { member, loadA, loadB, delta: loadB - loadA, overA: loadA > Number(member.cap || 0), overB: loadB > Number(member.cap || 0) }
   })
+  const compareChangedCount = projectDiffs.filter((item) => item.status === 'Changed' || item.status === 'Only in A' || item.status === 'Only in B').length
+  const compareStaffingDeltaCount = staffingDiffs.filter((item) => item.delta !== 0).length
 
   const toggleProject = (id) => setExpandedProjects((prev) => ({ ...prev, [id]: !prev[id] }))
   const toggleMember = (id) => setExpandedMembers((prev) => ({ ...prev, [id]: !prev[id] }))
@@ -496,7 +560,7 @@ export default function App() {
       <header className="topbar"><div><div className="eyebrow">FLUX2</div><h1>UX Resource Planner</h1><p>Planning, staffing, and visibility for UX workstreams.</p></div><button className="subtab" onClick={resetAll}>Reset seed data</button></header>
       <nav className="tabs">{TABS.map((item) => <button key={item} className={tab === item ? 'tab active' : 'tab'} onClick={() => setTab(item)}>{item}</button>)}</nav>
 
-      {tab === 'Home' && <section className="page-grid"><article className="panel stat-panel"><span className="label">Active scenario</span><strong>{activeScenario?.name}</strong><p>{activeScenario?.desc}</p></article><article className="panel stat-panel"><span className="label">Active projects</span><strong>{activeProjects.length}</strong><p>{criticalProjects} critical priorities in flight</p></article><article className="panel stat-panel"><span className="label">Planned FTE</span><strong>{totalFte.toFixed(1)}</strong><p>Across roadmap and side-of-desk commitments</p></article><article className="panel stat-panel"><span className="label">Allocation risk</span><strong>{overAllocated.length}</strong><p>People currently over capacity</p></article></section>}
+      {tab === 'Home' && <section><div className="page-grid"><article className="panel stat-panel"><span className="label">Active scenario</span><strong>{activeScenario?.name}</strong><p>{activeScenario?.desc}</p></article><article className="panel stat-panel"><span className="label">Projects at risk</span><strong>{activeScenarioHealth.riskProjects}</strong><p>Critical work, staffing issues, and uncovered gaps</p></article><article className="panel stat-panel"><span className="label">People over capacity</span><strong>{activeScenarioHealth.overCapacity}</strong><p>Team members loaded above stated capacity</p></article><article className="panel stat-panel"><span className="label">Uncovered skill gaps</span><strong>{activeScenarioHealth.uncoveredGaps}</strong><p>Requirements with no one currently covering the level needed</p></article></div><div className="page-grid"><article className="panel wide"><div className="section-head"><div><span className="label">Immediate actions</span><h2>What needs attention next</h2></div></div><div className="stack">{immediateActions.length ? immediateActions.map((item, index) => <div key={`${item.title}-${index}`} className="candidate-panel"><div className="candidate-line"><strong>{item.title}</strong><span className={badgeClass(item.priority)}>{item.priority}</span></div><div className="small-line">{item.detail}</div></div>) : <p className="muted">No immediate actions. The active scenario looks healthy.</p>}</div></article><article className="panel"><div className="section-head"><div><span className="label">Capacity risk</span><h2>Top overloaded people</h2></div></div><div className="stack">{overloadedMembers.length ? overloadedMembers.slice(0, 4).map((item) => <div key={item.member.id} className="candidate-panel"><div className="candidate-line"><strong>{item.member.name}</strong><span className="badge critical">+{item.overBy}%</span></div><div className="small-line">{item.load}% allocated against {item.member.cap}% capacity</div></div>) : <p className="muted">No one is currently over capacity.</p>}</div></article><article className="panel"><div className="section-head"><div><span className="label">Skill gap risk</span><h2>Top uncovered requirements</h2></div></div><div className="stack">{activeScenarioGaps.length ? activeScenarioGaps.slice(0, 4).map((gap, index) => <div key={`${gap.projectId}-${gap.skillId}-${index}`} className="candidate-panel"><div className="candidate-line"><strong>{gap.projectName}</strong><span className="badge critical">Gap</span></div><div className="small-line">{gap.skillName} needs {gap.needed}; best on team is {gap.best}</div></div>) : <p className="muted">No uncovered skill gaps in the active scenario.</p>}</div></article><article className="panel"><div className="section-head"><div><span className="label">Priority risk</span><h2>Projects needing attention</h2></div></div><div className="stack">{riskProjects.length ? riskProjects.slice(0, 4).map((item) => <div key={item.project.id} className="candidate-panel"><div className="candidate-line"><strong>{item.project.name}</strong><span className={badgeClass(item.project.prio)}>{item.project.prio}</span></div><div className="small-line">{item.reasons.join(' · ') || `Assigned fit ${item.avgFit}%`}</div></div>) : <p className="muted">No projects are currently flagged as high risk.</p>}</div></article><article className="panel wide"><div className="section-head"><div><span className="label">Scenario intelligence</span><h2>Compare signal</h2></div></div><div className="two-col"><div><span className="label">Scenario A</span><h2>{scenarios.find((s) => s.id === compareA)?.name || 'Scenario A'}</h2><p>{compareSummaryA.projectCount} projects · {compareSummaryA.totalFte.toFixed(1)} FTE · {compareSummaryA.gaps} gaps · {compareSummaryA.overCapacity} over cap</p></div><div><span className="label">Scenario B</span><h2>{scenarios.find((s) => s.id === compareB)?.name || 'Scenario B'}</h2><p>{compareSummaryB.projectCount} projects · {compareSummaryB.totalFte.toFixed(1)} FTE · {compareSummaryB.gaps} gaps · {compareSummaryB.overCapacity} over cap</p></div></div><div className="stack"><div className="candidate-panel"><div className="candidate-line"><strong>Changed projects</strong><span className="badge high">{compareChangedCount}</span></div><div className="small-line">Projects that differ, were added, or were removed between the selected scenarios</div></div><div className="candidate-panel"><div className="candidate-line"><strong>Staffing shifts</strong><span className="badge medium">{compareStaffingDeltaCount}</span></div><div className="small-line">People whose allocation changes between the selected scenarios</div></div></div></article></div></section>}
 
       {tab === 'Plan' && <section><div className="subtabs">{PLAN_VIEWS.map((item) => <button key={item} className={planView === item ? 'subtab active' : 'subtab'} onClick={() => setPlanView(item)}>{item}</button>)}</div>
 
@@ -511,7 +575,7 @@ export default function App() {
 
       {tab === 'Team' && <section><div className="subtabs">{TEAM_VIEWS.map((item) => <button key={item} className={teamView === item ? 'subtab active' : 'subtab'} onClick={() => setTeamView(item)}>{item}</button>)}</div>{teamView === 'Roster' && <><form className="panel form-grid" onSubmit={addTeamMember}><div className="section-head"><div><span className="label">Create</span><h2>Add team member</h2></div></div><Field label="Name"><input className="input" value={teamForm.name} onChange={(e) => setTeamForm({ ...teamForm, name: e.target.value })} /></Field><Field label="Role"><input className="input" value={teamForm.role} onChange={(e) => setTeamForm({ ...teamForm, role: e.target.value })} /></Field><Field label="Discipline"><select className="input" value={teamForm.discId} onChange={(e) => setTeamForm({ ...teamForm, discId: e.target.value })}>{disciplines.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></Field><Field label="Capacity %"><input className="input" type="number" value={teamForm.cap} onChange={(e) => setTeamForm({ ...teamForm, cap: e.target.value })} /></Field><Field label="Type"><select className="input" value={teamForm.emp} onChange={(e) => setTeamForm({ ...teamForm, emp: e.target.value })}><option>FTE</option><option>Contractor</option><option>Part-time</option><option>Consultant</option></select></Field><div className="form-actions"><button className="tab active" type="submit">Add person</button></div></form><div className="stack roster-grid">{team.map((member) => { const load = memberLoad(member.id); const discipline = disciplines.find((item) => item.id === member.discId); const isOpen = !!expandedMembers[member.id]; return <article key={member.id} className="panel"><div className="section-head"><div className="person-head"><div className="avatar">{member.avatar}</div><div><h2>{member.name}</h2><p>{member.role}</p></div></div><div className="actions"><button className="subtab" type="button" onClick={() => toggleMember(member.id)}>{isOpen ? 'Close' : 'Open'}</button><button className="subtab danger" type="button" onClick={() => deleteTeamMember(member.id)}>Delete</button></div></div><div className="meta-block"><span className="pill" style={{ borderColor: discipline?.color, color: discipline?.color }}>{discipline?.name}</span><span className="pill">{member.emp}</span></div><div className="capacity-line"><span>{load}% allocated</span><span>{member.cap}% cap</span></div><div className="meter"><div className={load > member.cap ? 'meter-fill danger' : 'meter-fill'} style={{ width: `${Math.min(load, 100)}%` }} /></div><p className="muted small">Superpowers: {(member.powers || []).filter(Boolean).join(', ') || 'None yet'}</p>{isOpen && <TeamEditor member={member} setTeam={setTeam} />}</article> })}</div></>}{teamView === 'Skills' && <article className="panel"><div className="section-head"><div><span className="label">Skills matrix</span><h2>Capabilities on the team</h2></div></div><div className="skill-matrix"><div className="matrix-head matrix-row"><div>Skill</div>{team.map((member) => <div key={member.id}>{member.avatar}</div>)}</div>{skills.map((skill) => <div key={skill.id} className="matrix-row"><div>{skill.name}</div>{team.map((member) => <div key={member.id}>{member.sp?.[skill.id] || '—'}</div>)}</div>)}</div></article>}</section>}
 
-      {tab === 'Analyze' && <section><div className="subtabs">{ANALYZE_VIEWS.map((item) => <button key={item} className={analyzeView === item ? 'subtab active' : 'subtab'} onClick={() => setAnalyzeView(item)}>{item}</button>)}</div>{analyzeView === 'Growth' && <div className="page-grid"><article className="panel"><span className="label">Upskill target</span><h2>Interaction Design depth</h2><p>Maya and Sam already contribute here. A next hire or coaching plan should strengthen cross-coverage.</p></article><article className="panel"><span className="label">Upskill target</span><h2>Systems + visual pairing</h2><p>Design System v2 depends on strong systems and visual collaboration. Alex is the obvious partner for Sam.</p></article><article className="panel wide"><span className="label">Scenario planning</span><h2>Project transfer is live</h2><p>Open a project card to copy or move that project into another scenario, then compare the outcome.</p></article></div>}{analyzeView === 'Reports' && <article className="panel"><div className="section-head"><div><span className="label">Report</span><h2>Executive summary</h2></div></div><ul className="list"><li>{activeProjects.length} active efforts tied to the current roadmap</li><li>{overAllocated.length} team members exceed capacity</li><li>{criticalProjects} critical project currently in flight</li><li>{totalFte.toFixed(1)} FTE planned in the active scenario</li></ul></article>}</section>}
+      {tab === 'Analyze' && <section><div className="subtabs">{ANALYZE_VIEWS.map((item) => <button key={item} className={analyzeView === item ? 'subtab active' : 'subtab'} onClick={() => setAnalyzeView(item)}>{item}</button>)}</div>{analyzeView === 'Growth' && <div className="page-grid"><article className="panel"><span className="label">Upskill target</span><h2>Interaction Design depth</h2><p>Maya and Sam already contribute here. A next hire or coaching plan should strengthen cross-coverage.</p></article><article className="panel"><span className="label">Upskill target</span><h2>Systems + visual pairing</h2><p>Design System v2 depends on strong systems and visual collaboration. Alex is the obvious partner for Sam.</p></article><article className="panel wide"><span className="label">Dashboard</span><h2>Command center is live</h2><p>Home now surfaces immediate actions, overloaded people, uncovered gaps, and scenario compare signals.</p></article></div>}{analyzeView === 'Reports' && <article className="panel"><div className="section-head"><div><span className="label">Report</span><h2>Executive summary</h2></div></div><ul className="list"><li>{activeProjects.length} active efforts tied to the current roadmap</li><li>{overAllocated.length} team members exceed capacity</li><li>{criticalProjects} critical project currently in flight</li><li>{totalFte.toFixed(1)} FTE planned in the active scenario</li></ul></article>}</section>}
     </div>
   )
 }
