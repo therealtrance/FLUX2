@@ -135,11 +135,70 @@ select {
   }
 }
 
+.editor-shell-wrap {
+  position: fixed;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  z-index: 60;
+}
+
+.editor-backdrop {
+  display: block;
+  position: absolute;
+  inset: 0;
+  border: 0;
+  background: rgba(2, 6, 23, 0.72);
+  backdrop-filter: blur(6px);
+  cursor: pointer;
+}
+
+.editor-shell {
+  position: relative;
+  width: min(1040px, 100%);
+  max-height: calc(100vh - 32px);
+  overflow: auto;
+  padding: 18px;
+  border-radius: 18px;
+  background: rgba(6, 11, 26, 0.95);
+  border: 1px solid #31415f;
+  box-shadow: 0 18px 42px rgba(0, 0, 0, 0.32);
+}
+
+.editor-shell-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: start;
+  margin-bottom: 16px;
+}
+
+.editor-shell-head h2 {
+  margin: 4px 0 0;
+}
+
+.editor-shell-body,
+.editor-section,
 .form-grid,
 .mini-form,
 .skill-edit-grid {
   display: grid;
   gap: 14px;
+}
+
+.editor-shell-body {
+  gap: 18px;
+}
+
+.editor-section {
+  padding-top: 14px;
+  border-top: 1px solid rgba(49, 65, 95, 0.7);
+}
+
+.editor-section:first-child {
+  padding-top: 0;
+  border-top: 0;
 }
 
 .field {
@@ -215,12 +274,6 @@ select {
 .power-row,
 .candidate-panel {
   align-items: stretch;
-}
-
-.roster-editor {
-  margin-top: 18px;
-  border-top: 1px solid #243250;
-  padding-top: 16px;
 }
 
 .roster-main {
@@ -499,6 +552,15 @@ select {
   .form-actions {
     grid-column: 1 / -1;
   }
+
+  .editor-shell-wrap {
+    padding: 28px;
+  }
+
+  .editor-shell {
+    padding: 22px;
+    max-height: calc(100vh - 56px);
+  }
 }
 
 @media (min-width: 1024px) {
@@ -520,7 +582,8 @@ select {
   .roster-row,
   .power-row,
   .candidate-line,
-  .req-controls {
+  .req-controls,
+  .editor-shell-head {
     flex-direction: column;
   }
 
