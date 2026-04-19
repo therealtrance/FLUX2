@@ -211,6 +211,24 @@ function Field({ label, children }) {
   return <label className="field"><span className="label">{label}</span>{children}</label>
 }
 
+function EditorShell({ title, onClose, children }) {
+  return (
+    <div className="editor-shell-wrap">
+      <button className="editor-backdrop" type="button" aria-label="Close editor" onClick={onClose} />
+      <div className="editor-shell" role="dialog" aria-modal="true" aria-label={title}>
+        <div className="editor-shell-head">
+          <div>
+            <span className="label">Edit</span>
+            <h2>{title}</h2>
+          </div>
+          <button className="subtab" type="button" onClick={onClose}>Close</button>
+        </div>
+        <div className="editor-shell-body">{children}</div>
+      </div>
+    </div>
+  )
+}
+
 function SkillRequirementsEditor({ project, team, setProjects }) {
   const usedSkillIds = Object.keys(project.sr || {})
   const availableSkills = skills.filter((skill) => !usedSkillIds.includes(skill.id))
@@ -237,7 +255,7 @@ function SkillRequirementsEditor({ project, team, setProjects }) {
   }
 
   return (
-    <div className="roster-editor">
+    <div className="editor-section">
       <div className="section-head compact"><div><span className="label">Skill requirements</span><h3>Edit required skills</h3></div></div>
       <form className="mini-form" onSubmit={addRequirement}>
         <Field label="Skill"><select className="input" value={newSkillId} onChange={(e) => setNewSkillId(e.target.value)} disabled={!availableSkills.length}>{availableSkills.map((skill) => <option key={skill.id} value={skill.id}>{skill.name}</option>)}</select></Field>
@@ -280,7 +298,7 @@ function ProjectTransferEditor({ project, scenarios, setProjects, setExpandedPro
       roster: project.roster.map((entry) => ({ ...entry, id: uid('r') })),
     }
     setProjects((prev) => [...prev, clonedProject])
-    setExpandedProjects((prev) => ({ ...prev, [clonedProject.id]: true }))
+    setExpandedProjects((prev) => ({ ...prev, [clonedProject.id]: false }))
     setCompareA(project.scId)
     setCompareB(targetScenarioId)
     setPlanView('Compare')
@@ -299,7 +317,7 @@ function ProjectTransferEditor({ project, scenarios, setProjects, setExpandedPro
   if (!targetScenarios.length) return null
 
   return (
-    <div className="roster-editor">
+    <div className="editor-section">
       <div className="section-head compact"><div><span className="label">Scenario transfer</span><h3>Copy or move project</h3></div></div>
       <div className="mini-form">
         <Field label="Target scenario"><select className="input" value={targetScenarioId} onChange={(e) => setTargetScenarioId(e.target.value)}>{targetScenarios.map((scenario) => <option key={scenario.id} value={scenario.id}>{scenario.name}</option>)}</select></Field>
@@ -312,7 +330,7 @@ function ProjectTransferEditor({ project, scenarios, setProjects, setExpandedPro
 function ProjectEditor({ project, scenarios, setProjects }) {
   const updateProject = (field, value) => setProjects((prev) => prev.map((item) => item.id === project.id ? { ...item, [field]: field === 'fte' ? Number(value) : value } : item))
   return (
-    <div className="roster-editor">
+    <div className="editor-section">
       <div className="section-head compact"><div><span className="label">Project details</span><h3>Edit project</h3></div></div>
       <div className="mini-form">
         <Field label="Project name"><input className="input" value={project.name} onChange={(e) => updateProject('name', e.target.value)} /></Field>
@@ -346,7 +364,7 @@ function TeamEditor({ member, setTeam }) {
   const updateSkill = (skillId, value) => setTeam((prev) => prev.map((item) => item.id === member.id ? { ...item, sp: { ...(item.sp || {}), [skillId]: value === '' ? undefined : Number(value) } } : item))
 
   return (
-    <div className="roster-editor">
+    <div className="editor-section">
       <div className="section-head compact"><div><span className="label">Team details</span><h3>Edit person</h3></div></div>
       <div className="mini-form">
         <Field label="Name"><input className="input" value={member.name} onChange={(e) => updateMember('name', e.target.value)} /></Field>
@@ -391,7 +409,7 @@ function RosterEditor({ project, team, setProjects, memberLoad }) {
   }
 
   return (
-    <div className="roster-editor">
+    <div className="editor-section">
       <div className="section-head compact"><div><span className="label">Roster assignment</span><h3>Assign and edit people</h3></div></div>
       <div className="fit-summary-grid">
         {recommendations.slice(0, 3).map((item, index) => <div key={item.member.id} className="fit-card"><div className="fit-rank">#{index + 1}</div><strong>{item.member.name}</strong><div className="fit-meta">Fit {item.fitScore}% · Free {item.remaining}%</div><div className="fit-meta">Coverage {item.covered}/{item.total || 0}</div></div>)}
@@ -417,6 +435,26 @@ function RosterEditor({ project, team, setProjects, memberLoad }) {
   )
 }
 
+function ProjectEditSurface(props) {
+  const { project, scenarios, team, setProjects, setExpandedProjects, setCompareA, setCompareB, setPlanView, memberLoad, onClose } = props
+  return (
+    <EditorShell title={project.name} onClose={onClose}>
+      <ProjectEditor project={project} scenarios={scenarios} setProjects={setProjects} />
+      <ProjectTransferEditor project={project} scenarios={scenarios} setProjects={setProjects} setExpandedProjects={setExpandedProjects} setCompareA={setCompareA} setCompareB={setCompareB} setPlanView={setPlanView} />
+      <SkillRequirementsEditor project={project} team={team} setProjects={setProjects} />
+      <RosterEditor project={project} team={team} setProjects={setProjects} memberLoad={memberLoad} />
+    </EditorShell>
+  )
+}
+
+function TeamEditSurface({ member, setTeam, onClose }) {
+  return (
+    <EditorShell title={member.name} onClose={onClose}>
+      <TeamEditor member={member} setTeam={setTeam} />
+    </EditorShell>
+  )
+}
+
 export default function App() {
   const initial = getInitialState()
   const [tab, setTab] = useState('Home')
@@ -426,13 +464,15 @@ export default function App() {
   const [team, setTeam] = useState(initial.team)
   const [scenarios, setScenarios] = useState(initial.scenarios)
   const [projects, setProjects] = useState(initial.projects)
-  const [expandedProjects, setExpandedProjects] = useState({ [initial.projects[0]?.id || '']: true })
-  const [expandedMembers, setExpandedMembers] = useState({ [initial.team[0]?.id || '']: true })
+  const [expandedProjects, setExpandedProjects] = useState({})
+  const [expandedMembers, setExpandedMembers] = useState({})
   const [projectForm, setProjectForm] = useState({ name: '', scId: 'sc1', type: 'full', stage: 'Discovery', prio: 'Medium', due: '', owner: '', fte: 1 })
   const [scenarioForm, setScenarioForm] = useState({ name: '', desc: '', color: '#38bdf8' })
   const [teamForm, setTeamForm] = useState({ name: '', role: '', discId: 'd1', cap: 100, emp: 'FTE' })
   const [compareA, setCompareA] = useState(initial.scenarios[0]?.id || '')
   const [compareB, setCompareB] = useState(initial.scenarios[1]?.id || initial.scenarios[0]?.id || '')
+  const [editingProjectId, setEditingProjectId] = useState('')
+  const [editingMemberId, setEditingMemberId] = useState('')
 
   useEffect(() => {
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify({ team, scenarios, projects }))
@@ -470,6 +510,8 @@ export default function App() {
   })
   const compareChangedCount = projectDiffs.filter((item) => item.status === 'Changed' || item.status === 'Only in A' || item.status === 'Only in B').length
   const compareStaffingDeltaCount = staffingDiffs.filter((item) => item.delta !== 0).length
+  const editingProject = projects.find((project) => project.id === editingProjectId)
+  const editingMember = team.find((member) => member.id === editingMemberId)
 
   const openProjectDrilldown = (projectId) => {
     setTab('Plan')
@@ -552,7 +594,7 @@ export default function App() {
     if (!projectForm.name.trim()) return
     const newProject = { id: uid('p'), ...projectForm, fte: Number(projectForm.fte), roster: [], sr: {} }
     setProjects((prev) => [...prev, newProject])
-    setExpandedProjects((prev) => ({ ...prev, [newProject.id]: true }))
+    setExpandedProjects((prev) => ({ ...prev, [newProject.id]: false }))
     setProjectForm({ name: '', scId: activeScenario?.id || scenarios[0]?.id || '', type: 'full', stage: 'Discovery', prio: 'Medium', due: '', owner: '', fte: 1 })
   }
   const deleteProject = (id) => setProjects((prev) => prev.filter((project) => project.id !== id))
@@ -562,7 +604,7 @@ export default function App() {
     const initials = teamForm.name.split(' ').map((part) => part[0]).join('').slice(0, 2).toUpperCase()
     const newMember = { id: uid('t'), ...teamForm, cap: Number(teamForm.cap), avatar: initials || 'UX', sp: {}, powers: [] }
     setTeam((prev) => [...prev, newMember])
-    setExpandedMembers((prev) => ({ ...prev, [newMember.id]: true }))
+    setExpandedMembers((prev) => ({ ...prev, [newMember.id]: false }))
     setTeamForm({ name: '', role: '', discId: 'd1', cap: 100, emp: 'FTE' })
   }
   const deleteTeamMember = (id) => {
@@ -573,10 +615,12 @@ export default function App() {
     setTeam(seedTeam)
     setScenarios(seedScenarios)
     setProjects(seedProjects)
-    setExpandedProjects({ [seedProjects[0]?.id || '']: true })
-    setExpandedMembers({ [seedTeam[0]?.id || '']: true })
+    setExpandedProjects({})
+    setExpandedMembers({})
     setCompareA(seedScenarios[0]?.id || '')
     setCompareB(seedScenarios[1]?.id || seedScenarios[0]?.id || '')
+    setEditingProjectId('')
+    setEditingMemberId('')
   }
 
   return (
@@ -588,7 +632,7 @@ export default function App() {
 
       {tab === 'Plan' && <section><div className="subtabs">{PLAN_VIEWS.map((item) => <button key={item} className={planView === item ? 'subtab active' : 'subtab'} onClick={() => setPlanView(item)}>{item}</button>)}</div>
 
-        {planView === 'Projects' && <><form className="panel form-grid" onSubmit={addProject}><div className="section-head"><div><span className="label">Create</span><h2>Add project</h2></div></div><Field label="Project name"><input className="input" value={projectForm.name} onChange={(e) => setProjectForm({ ...projectForm, name: e.target.value })} /></Field><Field label="Scenario"><select className="input" value={projectForm.scId} onChange={(e) => setProjectForm({ ...projectForm, scId: e.target.value })}>{scenarios.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></Field><Field label="Owner"><input className="input" value={projectForm.owner} onChange={(e) => setProjectForm({ ...projectForm, owner: e.target.value })} /></Field><Field label="Priority"><select className="input" value={projectForm.prio} onChange={(e) => setProjectForm({ ...projectForm, prio: e.target.value })}><option>Low</option><option>Medium</option><option>High</option><option>Critical</option></select></Field><Field label="Stage"><select className="input" value={projectForm.stage} onChange={(e) => setProjectForm({ ...projectForm, stage: e.target.value })}><option>Discovery</option><option>Define</option><option>Design</option><option>Deliver</option></select></Field><Field label="Due"><input className="input" value={projectForm.due} onChange={(e) => setProjectForm({ ...projectForm, due: e.target.value })} placeholder="2026-05-01" /></Field><Field label="FTE"><input className="input" type="number" step="0.1" value={projectForm.fte} onChange={(e) => setProjectForm({ ...projectForm, fte: e.target.value })} /></Field><div className="form-actions"><button className="tab active" type="submit">Add project</button></div></form><div className="stack">{projects.map((project) => { const isOpen = !!expandedProjects[project.id]; return <article key={project.id} className="panel"><div className="section-head"><div><span className="label">{project.type === 'side' ? 'Side effort' : 'Project'}</span><h2>{project.name}</h2><p>{project.stage} · Due {project.due || 'TBD'} · Owner {project.owner || 'Unassigned'}</p></div><div className="actions"><span className={badgeClass(project.prio)}>{project.prio}</span><button className="subtab" type="button" onClick={() => toggleProject(project.id)}>{isOpen ? 'Close' : 'Open'}</button><button className="subtab danger" type="button" onClick={() => deleteProject(project.id)}>Delete</button></div></div>{isOpen && <><ProjectEditor project={project} scenarios={scenarios} setProjects={setProjects} /><ProjectTransferEditor project={project} scenarios={scenarios} setProjects={setProjects} setExpandedProjects={setExpandedProjects} setCompareA={setCompareA} setCompareB={setCompareB} setPlanView={setPlanView} /><SkillRequirementsEditor project={project} team={team} setProjects={setProjects} /><div className="two-col"><div><span className="label">Required skills</span><ul className="chip-list">{requirementList(project.sr).length ? requirementList(project.sr).map((item) => <li key={item}>{item}</li>) : <li>No minimum skill gates</li>}</ul></div><div><span className="label">Roster summary</span><ul className="list">{project.roster.length ? project.roster.map((entry) => { const member = team.find((person) => person.id === entry.mId); return <li key={entry.id}>{member?.name || entry.mId} · {entry.role} · {entry.alloc}%</li> }) : <li>No one assigned yet</li>}</ul></div></div><RosterEditor project={project} team={team} setProjects={setProjects} memberLoad={memberLoad} /></>}</article> })}</div></>}
+        {planView === 'Projects' && <><form className="panel form-grid" onSubmit={addProject}><div className="section-head"><div><span className="label">Create</span><h2>Add project</h2></div></div><Field label="Project name"><input className="input" value={projectForm.name} onChange={(e) => setProjectForm({ ...projectForm, name: e.target.value })} /></Field><Field label="Scenario"><select className="input" value={projectForm.scId} onChange={(e) => setProjectForm({ ...projectForm, scId: e.target.value })}>{scenarios.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></Field><Field label="Owner"><input className="input" value={projectForm.owner} onChange={(e) => setProjectForm({ ...projectForm, owner: e.target.value })} /></Field><Field label="Priority"><select className="input" value={projectForm.prio} onChange={(e) => setProjectForm({ ...projectForm, prio: e.target.value })}><option>Low</option><option>Medium</option><option>High</option><option>Critical</option></select></Field><Field label="Stage"><select className="input" value={projectForm.stage} onChange={(e) => setProjectForm({ ...projectForm, stage: e.target.value })}><option>Discovery</option><option>Define</option><option>Design</option><option>Deliver</option></select></Field><Field label="Due"><input className="input" value={projectForm.due} onChange={(e) => setProjectForm({ ...projectForm, due: e.target.value })} placeholder="2026-05-01" /></Field><Field label="FTE"><input className="input" type="number" step="0.1" value={projectForm.fte} onChange={(e) => setProjectForm({ ...projectForm, fte: e.target.value })} /></Field><div className="form-actions"><button className="tab active" type="submit">Add project</button></div></form><div className="stack">{projects.map((project) => { const isOpen = !!expandedProjects[project.id]; return <article key={project.id} className="panel"><div className="section-head"><div><span className="label">{project.type === 'side' ? 'Side effort' : 'Project'}</span><h2>{project.name}</h2><p>{project.stage} · Due {project.due || 'TBD'} · Owner {project.owner || 'Unassigned'}</p></div><div className="actions"><span className={badgeClass(project.prio)}>{project.prio}</span><button className="subtab" type="button" onClick={() => toggleProject(project.id)}>{isOpen ? 'Close' : 'Open'}</button><button className="subtab" type="button" onClick={() => setEditingProjectId(project.id)}>Edit</button><button className="subtab danger" type="button" onClick={() => deleteProject(project.id)}>Delete</button></div></div>{isOpen && <div className="two-col"><div><span className="label">Required skills</span><ul className="chip-list">{requirementList(project.sr).length ? requirementList(project.sr).map((item) => <li key={item}>{item}</li>) : <li>No minimum skill gates</li>}</ul></div><div><span className="label">Roster summary</span><ul className="list">{project.roster.length ? project.roster.map((entry) => { const member = team.find((person) => person.id === entry.mId); return <li key={entry.id}>{member?.name || entry.mId} · {entry.role} · {entry.alloc}%</li> }) : <li>No one assigned yet</li>}</ul></div></div>}</article> })}</div>{editingProject && <ProjectEditSurface project={editingProject} scenarios={scenarios} team={team} setProjects={setProjects} setExpandedProjects={setExpandedProjects} setCompareA={setCompareA} setCompareB={setCompareB} setPlanView={setPlanView} memberLoad={memberLoad} onClose={() => setEditingProjectId('')} />}</>}
 
         {planView === 'Scenarios' && <><form className="panel form-grid" onSubmit={addScenario}><div className="section-head"><div><span className="label">Create</span><h2>Add scenario</h2></div></div><Field label="Scenario name"><input className="input" value={scenarioForm.name} onChange={(e) => setScenarioForm({ ...scenarioForm, name: e.target.value })} /></Field><Field label="Description"><input className="input" value={scenarioForm.desc} onChange={(e) => setScenarioForm({ ...scenarioForm, desc: e.target.value })} /></Field><Field label="Color"><input className="input" value={scenarioForm.color} onChange={(e) => setScenarioForm({ ...scenarioForm, color: e.target.value })} /></Field><div className="form-actions"><button className="tab active" type="submit">Add scenario</button></div></form><div className="stack">{scenarios.map((scenario) => <article key={scenario.id} className="panel"><div className="section-head"><div><span className="label">Scenario</span><h2>{scenario.name}</h2><p>{scenario.desc}</p></div><div className="actions"><button className={scenario.active ? 'subtab active' : 'subtab'} type="button" onClick={() => setActiveScenario(scenario.id)}>{scenario.active ? 'Active' : 'Set active'}</button><button className="subtab" type="button" onClick={() => duplicateScenario(scenario)}>Duplicate</button>{scenarios.length > 1 && <button className="subtab danger" type="button" onClick={() => deleteScenario(scenario.id)}>Delete</button>}</div></div></article>)}</div></>}
 
@@ -597,7 +641,7 @@ export default function App() {
         {planView === 'Compare' && <section className="stack"><article className="panel"><div className="section-head"><div><span className="label">Scenario compare</span><h2>Compare two planning scenarios</h2></div></div><div className="mini-form"><Field label="Scenario A"><select className="input" value={compareA} onChange={(e) => setCompareA(e.target.value)}>{scenarios.map((scenario) => <option key={scenario.id} value={scenario.id}>{scenario.name}</option>)}</select></Field><Field label="Scenario B"><select className="input" value={compareB} onChange={(e) => setCompareB(e.target.value)}>{scenarios.map((scenario) => <option key={scenario.id} value={scenario.id}>{scenario.name}</option>)}</select></Field></div></article><div className="compare-grid"><article className="panel"><span className="label">Scenario A</span><h2>{scenarios.find((s) => s.id === compareA)?.name || 'Scenario A'}</h2><ul className="list"><li>{compareSummaryA.projectCount} projects</li><li>{compareSummaryA.totalFte.toFixed(1)} FTE</li><li>{compareSummaryA.criticalCount} critical</li><li>{compareSummaryA.overCapacity} over capacity</li><li>{compareSummaryA.gaps} uncovered gaps</li><li>{compareSummaryA.avgFit}% avg assigned fit</li></ul></article><article className="panel"><span className="label">Scenario B</span><h2>{scenarios.find((s) => s.id === compareB)?.name || 'Scenario B'}</h2><ul className="list"><li>{compareSummaryB.projectCount} projects</li><li>{compareSummaryB.totalFte.toFixed(1)} FTE</li><li>{compareSummaryB.criticalCount} critical</li><li>{compareSummaryB.overCapacity} over capacity</li><li>{compareSummaryB.gaps} uncovered gaps</li><li>{compareSummaryB.avgFit}% avg assigned fit</li></ul></article></div><article className="panel"><div className="section-head"><div><span className="label">Project delta</span><h2>What changed between scenarios</h2></div></div><div className="stack">{projectDiffs.map((item) => <div key={item.name} className="candidate-panel"><div className="candidate-line"><strong>{item.name}</strong><span className={item.status === 'Changed' ? 'badge high' : item.status === 'Only in A' ? 'badge low' : item.status === 'Only in B' ? 'badge medium' : 'badge medium'}>{item.status}</span></div>{item.a && item.b && item.status === 'Changed' && <div className="small-line">A: {item.a.stage} · {item.a.prio} · {item.a.due || 'TBD'} · {item.a.fte} FTE<br />B: {item.b.stage} · {item.b.prio} · {item.b.due || 'TBD'} · {item.b.fte} FTE</div>}{item.a && !item.b && <div className="small-line">Present only in Scenario A</div>}{!item.a && item.b && <div className="small-line">Present only in Scenario B</div>}</div>)}</div></article><article className="panel"><div className="section-head"><div><span className="label">Staffing delta</span><h2>Allocation change by person</h2></div></div><div className="stack">{staffingDiffs.map((item) => <div key={item.member.id} className="roster-row"><div className="roster-main"><strong>{item.member.name}</strong><span className={item.delta > 0 ? 'badge high' : item.delta < 0 ? 'badge medium' : 'badge low'}>{item.delta > 0 ? `+${item.delta}%` : `${item.delta}%`}</span></div><div className="roster-fields"><div className="small-line">A: {item.loadA}% {item.overA ? '· Over cap' : ''}</div><div className="small-line">B: {item.loadB}% {item.overB ? '· Over cap' : ''}</div></div></div>)}</div></article></section>}
       </section>}
 
-      {tab === 'Team' && <section><div className="subtabs">{TEAM_VIEWS.map((item) => <button key={item} className={teamView === item ? 'subtab active' : 'subtab'} onClick={() => setTeamView(item)}>{item}</button>)}</div>{teamView === 'Roster' && <><form className="panel form-grid" onSubmit={addTeamMember}><div className="section-head"><div><span className="label">Create</span><h2>Add team member</h2></div></div><Field label="Name"><input className="input" value={teamForm.name} onChange={(e) => setTeamForm({ ...teamForm, name: e.target.value })} /></Field><Field label="Role"><input className="input" value={teamForm.role} onChange={(e) => setTeamForm({ ...teamForm, role: e.target.value })} /></Field><Field label="Discipline"><select className="input" value={teamForm.discId} onChange={(e) => setTeamForm({ ...teamForm, discId: e.target.value })}>{disciplines.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></Field><Field label="Capacity %"><input className="input" type="number" value={teamForm.cap} onChange={(e) => setTeamForm({ ...teamForm, cap: e.target.value })} /></Field><Field label="Type"><select className="input" value={teamForm.emp} onChange={(e) => setTeamForm({ ...teamForm, emp: e.target.value })}><option>FTE</option><option>Contractor</option><option>Part-time</option><option>Consultant</option></select></Field><div className="form-actions"><button className="tab active" type="submit">Add person</button></div></form><div className="stack roster-grid">{team.map((member) => { const load = memberLoad(member.id); const discipline = disciplines.find((item) => item.id === member.discId); const isOpen = !!expandedMembers[member.id]; return <article key={member.id} className="panel"><div className="section-head"><div className="person-head"><div className="avatar">{member.avatar}</div><div><h2>{member.name}</h2><p>{member.role}</p></div></div><div className="actions"><button className="subtab" type="button" onClick={() => toggleMember(member.id)}>{isOpen ? 'Close' : 'Open'}</button><button className="subtab danger" type="button" onClick={() => deleteTeamMember(member.id)}>Delete</button></div></div><div className="meta-block"><span className="pill" style={{ borderColor: discipline?.color, color: discipline?.color }}>{discipline?.name}</span><span className="pill">{member.emp}</span></div><div className="capacity-line"><span>{load}% allocated</span><span>{member.cap}% cap</span></div><div className="meter"><div className={load > member.cap ? 'meter-fill danger' : 'meter-fill'} style={{ width: `${Math.min(load, 100)}%` }} /></div><p className="muted small">Superpowers: {(member.powers || []).filter(Boolean).join(', ') || 'None yet'}</p>{isOpen && <TeamEditor member={member} setTeam={setTeam} />}</article> })}</div></>}{teamView === 'Skills' && <article className="panel"><div className="section-head"><div><span className="label">Skills matrix</span><h2>Capabilities on the team</h2></div></div><div className="skill-matrix"><div className="matrix-head matrix-row"><div>Skill</div>{team.map((member) => <div key={member.id}>{member.avatar}</div>)}</div>{skills.map((skill) => <div key={skill.id} className="matrix-row"><div>{skill.name}</div>{team.map((member) => <div key={member.id}>{member.sp?.[skill.id] || '—'}</div>)}</div>)}</div></article>}</section>}
+      {tab === 'Team' && <section><div className="subtabs">{TEAM_VIEWS.map((item) => <button key={item} className={teamView === item ? 'subtab active' : 'subtab'} onClick={() => setTeamView(item)}>{item}</button>)}</div>{teamView === 'Roster' && <><form className="panel form-grid" onSubmit={addTeamMember}><div className="section-head"><div><span className="label">Create</span><h2>Add team member</h2></div></div><Field label="Name"><input className="input" value={teamForm.name} onChange={(e) => setTeamForm({ ...teamForm, name: e.target.value })} /></Field><Field label="Role"><input className="input" value={teamForm.role} onChange={(e) => setTeamForm({ ...teamForm, role: e.target.value })} /></Field><Field label="Discipline"><select className="input" value={teamForm.discId} onChange={(e) => setTeamForm({ ...teamForm, discId: e.target.value })}>{disciplines.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></Field><Field label="Capacity %"><input className="input" type="number" value={teamForm.cap} onChange={(e) => setTeamForm({ ...teamForm, cap: e.target.value })} /></Field><Field label="Type"><select className="input" value={teamForm.emp} onChange={(e) => setTeamForm({ ...teamForm, emp: e.target.value })}><option>FTE</option><option>Contractor</option><option>Part-time</option><option>Consultant</option></select></Field><div className="form-actions"><button className="tab active" type="submit">Add person</button></div></form><div className="stack roster-grid">{team.map((member) => { const load = memberLoad(member.id); const discipline = disciplines.find((item) => item.id === member.discId); const isOpen = !!expandedMembers[member.id]; return <article key={member.id} className="panel"><div className="section-head"><div className="person-head"><div className="avatar">{member.avatar}</div><div><h2>{member.name}</h2><p>{member.role}</p></div></div><div className="actions"><button className="subtab" type="button" onClick={() => toggleMember(member.id)}>{isOpen ? 'Close' : 'Open'}</button><button className="subtab" type="button" onClick={() => setEditingMemberId(member.id)}>Edit</button><button className="subtab danger" type="button" onClick={() => deleteTeamMember(member.id)}>Delete</button></div></div><div className="meta-block"><span className="pill" style={{ borderColor: discipline?.color, color: discipline?.color }}>{discipline?.name}</span><span className="pill">{member.emp}</span></div><div className="capacity-line"><span>{load}% allocated</span><span>{member.cap}% cap</span></div><div className="meter"><div className={load > member.cap ? 'meter-fill danger' : 'meter-fill'} style={{ width: `${Math.min(load, 100)}%` }} /></div>{isOpen && <p className="muted small">Superpowers: {(member.powers || []).filter(Boolean).join(', ') || 'None yet'}</p>}</article> })}</div>{editingMember && <TeamEditSurface member={editingMember} setTeam={setTeam} onClose={() => setEditingMemberId('')} />}</>}{teamView === 'Skills' && <article className="panel"><div className="section-head"><div><span className="label">Skills matrix</span><h2>Capabilities on the team</h2></div></div><div className="skill-matrix"><div className="matrix-head matrix-row"><div>Skill</div>{team.map((member) => <div key={member.id}>{member.avatar}</div>)}</div>{skills.map((skill) => <div key={skill.id} className="matrix-row"><div>{skill.name}</div>{team.map((member) => <div key={member.id}>{member.sp?.[skill.id] || '—'}</div>)}</div>)}</div></article>}</section>}
 
       {tab === 'Analyze' && <section><div className="subtabs">{ANALYZE_VIEWS.map((item) => <button key={item} className={analyzeView === item ? 'subtab active' : 'subtab'} onClick={() => setAnalyzeView(item)}>{item}</button>)}</div>{analyzeView === 'Growth' && <div className="page-grid"><article className="panel"><span className="label">Upskill target</span><h2>Interaction Design depth</h2><p>Maya and Sam already contribute here. A next hire or coaching plan should strengthen cross-coverage.</p></article><article className="panel"><span className="label">Upskill target</span><h2>Systems + visual pairing</h2><p>Design System v2 depends on strong systems and visual collaboration. Alex is the obvious partner for Sam.</p></article><article className="panel wide"><span className="label">Dashboard</span><h2>Command center is live</h2><p>Home now surfaces immediate actions, overloaded people, uncovered gaps, and scenario compare signals.</p></article></div>}{analyzeView === 'Reports' && <article className="panel"><div className="section-head"><div><span className="label">Report</span><h2>Executive summary</h2></div></div><ul className="list"><li>{activeProjects.length} active efforts tied to the current roadmap</li><li>{overAllocated.length} team members exceed capacity</li><li>{criticalProjects} critical project currently in flight</li><li>{totalFte.toFixed(1)} FTE planned in the active scenario</li></ul></article>}</section>}
     </div>
