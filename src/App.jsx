@@ -457,18 +457,6 @@ export default function App() {
     .map((member) => ({ member, load: memberLoad(member.id), overBy: memberLoad(member.id) - Number(member.cap || 0) }))
     .filter((item) => item.load > Number(item.member.cap || 0))
     .sort((a, b) => b.overBy - a.overBy)
-  const immediateActions = [
-    ...overloadedMembers.slice(0, 2).map((item) => ({
-      title: `Rebalance ${item.member.name}`,
-      detail: `${item.load}% / ${item.member.cap}% cap`,
-      priority: 'Critical',
-    })),
-    ...riskProjects.slice(0, 3).map((item) => ({
-      title: item.project.name,
-      detail: item.reasons.join(' · '),
-      priority: item.project.prio,
-    })),
-  ].slice(0, 5)
 
   const compareProjectsA = getScenarioProjects(projects, compareA)
   const compareProjectsB = getScenarioProjects(projects, compareB)
@@ -482,6 +470,42 @@ export default function App() {
   })
   const compareChangedCount = projectDiffs.filter((item) => item.status === 'Changed' || item.status === 'Only in A' || item.status === 'Only in B').length
   const compareStaffingDeltaCount = staffingDiffs.filter((item) => item.delta !== 0).length
+
+  const openProjectDrilldown = (projectId) => {
+    setTab('Plan')
+    setPlanView('Projects')
+    setExpandedProjects((prev) => ({ ...prev, [projectId]: true }))
+  }
+
+  const openMemberDrilldown = (memberId) => {
+    setTab('Team')
+    setTeamView('Roster')
+    setExpandedMembers((prev) => ({ ...prev, [memberId]: true }))
+  }
+
+  const openCompareDrilldown = (scenarioA, scenarioB) => {
+    if (scenarioA) setCompareA(scenarioA)
+    if (scenarioB) setCompareB(scenarioB)
+    setTab('Plan')
+    setPlanView('Compare')
+  }
+
+  const immediateActions = [
+    ...overloadedMembers.slice(0, 2).map((item) => ({
+      title: `Rebalance ${item.member.name}`,
+      detail: `${item.load}% / ${item.member.cap}% cap`,
+      priority: 'Critical',
+      actionLabel: 'Open person',
+      onClick: () => openMemberDrilldown(item.member.id),
+    })),
+    ...riskProjects.slice(0, 3).map((item) => ({
+      title: item.project.name,
+      detail: item.reasons.join(' · '),
+      priority: item.project.prio,
+      actionLabel: 'Open project',
+      onClick: () => openProjectDrilldown(item.project.id),
+    })),
+  ].slice(0, 5)
 
   const toggleProject = (id) => setExpandedProjects((prev) => ({ ...prev, [id]: !prev[id] }))
   const toggleMember = (id) => setExpandedMembers((prev) => ({ ...prev, [id]: !prev[id] }))
@@ -560,7 +584,7 @@ export default function App() {
       <header className="topbar"><div><div className="eyebrow">FLUX2</div><h1>UX Resource Planner</h1><p>Planning, staffing, and visibility for UX workstreams.</p></div><button className="subtab" onClick={resetAll}>Reset seed data</button></header>
       <nav className="tabs">{TABS.map((item) => <button key={item} className={tab === item ? 'tab active' : 'tab'} onClick={() => setTab(item)}>{item}</button>)}</nav>
 
-      {tab === 'Home' && <section><div className="page-grid"><article className="panel stat-panel"><span className="label">Active scenario</span><strong>{activeScenario?.name}</strong><p>{activeScenario?.desc}</p></article><article className="panel stat-panel"><span className="label">Projects at risk</span><strong>{activeScenarioHealth.riskProjects}</strong><p>Critical work, staffing issues, and uncovered gaps</p></article><article className="panel stat-panel"><span className="label">People over capacity</span><strong>{activeScenarioHealth.overCapacity}</strong><p>Team members loaded above stated capacity</p></article><article className="panel stat-panel"><span className="label">Uncovered skill gaps</span><strong>{activeScenarioHealth.uncoveredGaps}</strong><p>Requirements with no one currently covering the level needed</p></article></div><div className="page-grid"><article className="panel wide"><div className="section-head"><div><span className="label">Immediate actions</span><h2>What needs attention next</h2></div></div><div className="stack">{immediateActions.length ? immediateActions.map((item, index) => <div key={`${item.title}-${index}`} className="candidate-panel"><div className="candidate-line"><strong>{item.title}</strong><span className={badgeClass(item.priority)}>{item.priority}</span></div><div className="small-line">{item.detail}</div></div>) : <p className="muted">No immediate actions. The active scenario looks healthy.</p>}</div></article><article className="panel"><div className="section-head"><div><span className="label">Capacity risk</span><h2>Top overloaded people</h2></div></div><div className="stack">{overloadedMembers.length ? overloadedMembers.slice(0, 4).map((item) => <div key={item.member.id} className="candidate-panel"><div className="candidate-line"><strong>{item.member.name}</strong><span className="badge critical">+{item.overBy}%</span></div><div className="small-line">{item.load}% allocated against {item.member.cap}% capacity</div></div>) : <p className="muted">No one is currently over capacity.</p>}</div></article><article className="panel"><div className="section-head"><div><span className="label">Skill gap risk</span><h2>Top uncovered requirements</h2></div></div><div className="stack">{activeScenarioGaps.length ? activeScenarioGaps.slice(0, 4).map((gap, index) => <div key={`${gap.projectId}-${gap.skillId}-${index}`} className="candidate-panel"><div className="candidate-line"><strong>{gap.projectName}</strong><span className="badge critical">Gap</span></div><div className="small-line">{gap.skillName} needs {gap.needed}; best on team is {gap.best}</div></div>) : <p className="muted">No uncovered skill gaps in the active scenario.</p>}</div></article><article className="panel"><div className="section-head"><div><span className="label">Priority risk</span><h2>Projects needing attention</h2></div></div><div className="stack">{riskProjects.length ? riskProjects.slice(0, 4).map((item) => <div key={item.project.id} className="candidate-panel"><div className="candidate-line"><strong>{item.project.name}</strong><span className={badgeClass(item.project.prio)}>{item.project.prio}</span></div><div className="small-line">{item.reasons.join(' · ') || `Assigned fit ${item.avgFit}%`}</div></div>) : <p className="muted">No projects are currently flagged as high risk.</p>}</div></article><article className="panel wide"><div className="section-head"><div><span className="label">Scenario intelligence</span><h2>Compare signal</h2></div></div><div className="two-col"><div><span className="label">Scenario A</span><h2>{scenarios.find((s) => s.id === compareA)?.name || 'Scenario A'}</h2><p>{compareSummaryA.projectCount} projects · {compareSummaryA.totalFte.toFixed(1)} FTE · {compareSummaryA.gaps} gaps · {compareSummaryA.overCapacity} over cap</p></div><div><span className="label">Scenario B</span><h2>{scenarios.find((s) => s.id === compareB)?.name || 'Scenario B'}</h2><p>{compareSummaryB.projectCount} projects · {compareSummaryB.totalFte.toFixed(1)} FTE · {compareSummaryB.gaps} gaps · {compareSummaryB.overCapacity} over cap</p></div></div><div className="stack"><div className="candidate-panel"><div className="candidate-line"><strong>Changed projects</strong><span className="badge high">{compareChangedCount}</span></div><div className="small-line">Projects that differ, were added, or were removed between the selected scenarios</div></div><div className="candidate-panel"><div className="candidate-line"><strong>Staffing shifts</strong><span className="badge medium">{compareStaffingDeltaCount}</span></div><div className="small-line">People whose allocation changes between the selected scenarios</div></div></div></article></div></section>}
+      {tab === 'Home' && <section><div className="page-grid"><article className="panel stat-panel"><span className="label">Active scenario</span><strong>{activeScenario?.name}</strong><p>{activeScenario?.desc}</p></article><article className="panel stat-panel"><span className="label">Projects at risk</span><strong>{activeScenarioHealth.riskProjects}</strong><p>Critical work, staffing issues, and uncovered gaps</p></article><article className="panel stat-panel"><span className="label">People over capacity</span><strong>{activeScenarioHealth.overCapacity}</strong><p>Team members loaded above stated capacity</p></article><article className="panel stat-panel"><span className="label">Uncovered skill gaps</span><strong>{activeScenarioHealth.uncoveredGaps}</strong><p>Requirements with no one currently covering the level needed</p></article></div><div className="page-grid"><article className="panel wide"><div className="section-head"><div><span className="label">Immediate actions</span><h2>What needs attention next</h2></div></div><div className="stack">{immediateActions.length ? immediateActions.map((item, index) => <div key={`${item.title}-${index}`} className="candidate-panel"><div className="candidate-line"><strong>{item.title}</strong><span className={badgeClass(item.priority)}>{item.priority}</span></div><div className="small-line">{item.detail}</div><div className="actions"><button className="subtab" type="button" onClick={item.onClick}>{item.actionLabel}</button></div></div>) : <p className="muted">No immediate actions. The active scenario looks healthy.</p>}</div></article><article className="panel"><div className="section-head"><div><span className="label">Capacity risk</span><h2>Top overloaded people</h2></div></div><div className="stack">{overloadedMembers.length ? overloadedMembers.slice(0, 4).map((item) => <div key={item.member.id} className="candidate-panel"><div className="candidate-line"><strong>{item.member.name}</strong><span className="badge critical">+{item.overBy}%</span></div><div className="small-line">{item.load}% allocated against {item.member.cap}% capacity</div><div className="actions"><button className="subtab" type="button" onClick={() => openMemberDrilldown(item.member.id)}>Open person</button></div></div>) : <p className="muted">No one is currently over capacity.</p>}</div></article><article className="panel"><div className="section-head"><div><span className="label">Skill gap risk</span><h2>Top uncovered requirements</h2></div></div><div className="stack">{activeScenarioGaps.length ? activeScenarioGaps.slice(0, 4).map((gap, index) => <div key={`${gap.projectId}-${gap.skillId}-${index}`} className="candidate-panel"><div className="candidate-line"><strong>{gap.projectName}</strong><span className="badge critical">Gap</span></div><div className="small-line">{gap.skillName} needs {gap.needed}; best on team is {gap.best}</div><div className="actions"><button className="subtab" type="button" onClick={() => openProjectDrilldown(gap.projectId)}>Open project</button></div></div>) : <p className="muted">No uncovered skill gaps in the active scenario.</p>}</div></article><article className="panel"><div className="section-head"><div><span className="label">Priority risk</span><h2>Projects needing attention</h2></div></div><div className="stack">{riskProjects.length ? riskProjects.slice(0, 4).map((item) => <div key={item.project.id} className="candidate-panel"><div className="candidate-line"><strong>{item.project.name}</strong><span className={badgeClass(item.project.prio)}>{item.project.prio}</span></div><div className="small-line">{item.reasons.join(' · ') || `Assigned fit ${item.avgFit}%`}</div><div className="actions"><button className="subtab" type="button" onClick={() => openProjectDrilldown(item.project.id)}>Open project</button></div></div>) : <p className="muted">No projects are currently flagged as high risk.</p>}</div></article><article className="panel wide"><div className="section-head"><div><span className="label">Scenario intelligence</span><h2>Compare signal</h2></div></div><div className="two-col"><div><span className="label">Scenario A</span><h2>{scenarios.find((s) => s.id === compareA)?.name || 'Scenario A'}</h2><p>{compareSummaryA.projectCount} projects · {compareSummaryA.totalFte.toFixed(1)} FTE · {compareSummaryA.gaps} gaps · {compareSummaryA.overCapacity} over cap</p></div><div><span className="label">Scenario B</span><h2>{scenarios.find((s) => s.id === compareB)?.name || 'Scenario B'}</h2><p>{compareSummaryB.projectCount} projects · {compareSummaryB.totalFte.toFixed(1)} FTE · {compareSummaryB.gaps} gaps · {compareSummaryB.overCapacity} over cap</p></div></div><div className="stack"><div className="candidate-panel"><div className="candidate-line"><strong>Changed projects</strong><span className="badge high">{compareChangedCount}</span></div><div className="small-line">Projects that differ, were added, or were removed between the selected scenarios</div><div className="actions"><button className="subtab" type="button" onClick={() => openCompareDrilldown(compareA, compareB)}>Open compare</button></div></div><div className="candidate-panel"><div className="candidate-line"><strong>Staffing shifts</strong><span className="badge medium">{compareStaffingDeltaCount}</span></div><div className="small-line">People whose allocation changes between the selected scenarios</div><div className="actions"><button className="subtab" type="button" onClick={() => openCompareDrilldown(compareA, compareB)}>Open compare</button></div></div></div></article></div></section>}
 
       {tab === 'Plan' && <section><div className="subtabs">{PLAN_VIEWS.map((item) => <button key={item} className={planView === item ? 'subtab active' : 'subtab'} onClick={() => setPlanView(item)}>{item}</button>)}</div>
 
